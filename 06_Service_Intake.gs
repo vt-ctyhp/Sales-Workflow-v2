@@ -229,7 +229,9 @@ function intakeMatchByContact_(email, phone, brand) {
   }
   var rows = repoReadAll_('CustomerInfo').data || [];
   var matches = rows.filter(function(row) {
-    return row.EmailLower === emailLower && row.PhoneNorm === phoneNorm && row.Brand === normalizedBrand;
+    return normalizeEmail_(row.EmailLower || row.Email) === emailLower &&
+      normalizePhone_(row.PhoneNorm || row.Phone) === phoneNorm &&
+      String(row.Brand || '').trim() === normalizedBrand;
   });
   return matches.length ? matches[0] : null;
 }
