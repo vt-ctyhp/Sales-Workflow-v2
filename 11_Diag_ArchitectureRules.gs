@@ -11,6 +11,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '02_Util_Hashing.gs',
   '03_Lock_DocLock.gs',
   '03_Lock_NamedLock.gs',
+  '04_Repo_Core.gs',
   '04_Repo_Appointments.gs',
   '04_Repo_RootAppointments.gs',
   '04_Repo_CustomerInfo.gs',
@@ -61,6 +62,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '10_Trigger_Artifacts.gs',
   '10_Trigger_Maintenance.gs',
   '11_Diag_ArchitectureRules.gs',
+  '11_Diag_RepoTests.gs',
   '11_Diag_Benchmarks.gs',
   '11_Diag_DriftCheck.gs',
 ]);
@@ -74,6 +76,9 @@ const Diag = Object.freeze({
   },
   benchmarks: function() {
     return phaseNotImplemented_('Diag.benchmarks');
+  },
+  repoTests: function() {
+    return RepoTests.run();
   },
 });
 

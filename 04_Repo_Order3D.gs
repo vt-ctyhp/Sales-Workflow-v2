@@ -1,11 +1,11 @@
 const Order3D = Object.freeze({
   get: function(rootApptId) {
-    return phaseNotImplemented_('Order3D.get');
+    return repoGetByKey_('Order3D', rootApptId, 'RootApptID');
   },
   update: function(rootApptId, fields, version) {
-    return phaseNotImplemented_('Order3D.update');
+    return repoUpdateByKey_('Order3D', rootApptId, fields, version, 'RootApptID');
   },
   appendHistory: function(entry) {
-    return phaseNotImplemented_('Order3D.appendHistory');
+    return repoAppendHistory_('Order3DHistory', entry);
   },
 });

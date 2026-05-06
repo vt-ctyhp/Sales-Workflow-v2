@@ -1,8 +1,8 @@
 const DiamondViewing = Object.freeze({
   get: function(rootApptId) {
-    return phaseNotImplemented_('DiamondViewing.get');
+    return repoGetByKey_('DiamondViewing', rootApptId, 'RootApptID');
   },
   update: function(rootApptId, fields, version) {
-    return phaseNotImplemented_('DiamondViewing.update');
+    return repoUpdateByKey_('DiamondViewing', rootApptId, fields, version, 'RootApptID');
   },
 });

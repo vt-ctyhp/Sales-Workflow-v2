@@ -1,14 +1,26 @@
 const Appointments = Object.freeze({
   getById: function(apptId) {
-    return phaseNotImplemented_('Appointments.getById');
+    return repoGetByKey_('AppointmentEvents', apptId, 'APPT_ID');
   },
   findByExternalId: function(source, externalId) {
-    return phaseNotImplemented_('Appointments.findByExternalId');
+    return repoFindOne_('AppointmentEvents', {
+      BookingSource: source,
+      ExternalBookingId: externalId,
+    });
   },
   upsertEvent: function(event) {
-    return phaseNotImplemented_('Appointments.upsertEvent');
+    if (event && event.APPT_ID) {
+      var existing = repoGetByKey_('AppointmentEvents', event.APPT_ID, 'APPT_ID');
+      if (existing.ok) {
+        return repoUpdateByKey_('AppointmentEvents', event.APPT_ID, event, event.Version, 'APPT_ID');
+      }
+    }
+    return repoAppend_('AppointmentEvents', event);
   },
   recordOutcome: function(apptId, outcome) {
-    return phaseNotImplemented_('Appointments.recordOutcome');
+    return repoUpdateByKey_('AppointmentEvents', apptId, {
+      Outcome: outcome,
+      AppointmentStatus: outcome === APPOINTMENT_STATUS.NO_SHOW ? APPOINTMENT_STATUS.NO_SHOW : APPOINTMENT_STATUS.COMPLETED,
+    }, null, 'APPT_ID');
   },
 });

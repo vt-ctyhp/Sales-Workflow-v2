@@ -1,14 +1,17 @@
 const ClientStatus = Object.freeze({
   get: function(rootApptId) {
-    return phaseNotImplemented_('ClientStatus.get');
+    return repoGetByKey_('ClientStatus', rootApptId, 'RootApptID');
   },
   update: function(rootApptId, fields, version) {
-    return phaseNotImplemented_('ClientStatus.update');
+    return repoUpdateByKey_('ClientStatus', rootApptId, fields, version, 'RootApptID');
   },
   updateDeadline: function(rootApptId, fields, version) {
-    return phaseNotImplemented_('ClientStatus.updateDeadline');
+    var payload = mergeObjects_(fields || {}, {
+      Deadline3DUpdatedAt: new Date(),
+    });
+    return repoUpdateByKey_('ClientStatus', rootApptId, payload, version, 'RootApptID');
   },
   appendHistory: function(entry) {
-    return phaseNotImplemented_('ClientStatus.appendHistory');
+    return repoAppendHistory_('ClientStatusHistory', entry);
   },
 });

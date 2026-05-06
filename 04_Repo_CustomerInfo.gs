@@ -1,11 +1,11 @@
 const CustomerInfo = Object.freeze({
   get: function(rootApptId) {
-    return phaseNotImplemented_('CustomerInfo.get');
+    return repoGetByKey_('CustomerInfo', rootApptId, 'RootApptID');
   },
   create: function(customer) {
-    return phaseNotImplemented_('CustomerInfo.create');
+    return repoAppend_('CustomerInfo', customer);
   },
   updateOwners: function(rootApptId, owners, version) {
-    return phaseNotImplemented_('CustomerInfo.updateOwners');
+    return repoUpdateByKey_('CustomerInfo', rootApptId, owners, version, 'RootApptID');
   },
 });

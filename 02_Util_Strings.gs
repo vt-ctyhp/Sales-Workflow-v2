@@ -14,3 +14,14 @@ function normalizeEmail_(email) {
 function normalizePhone_(phone) {
   return String(phone || '').replace(/[^\d]/g, '');
 }
+
+function mergeObjects_() {
+  var output = {};
+  for (var i = 0; i < arguments.length; i += 1) {
+    var source = arguments[i] || {};
+    Object.keys(source).forEach(function(key) {
+      output[key] = source[key];
+    });
+  }
+  return output;
+}

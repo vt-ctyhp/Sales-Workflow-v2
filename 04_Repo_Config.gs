@@ -1,8 +1,21 @@
 const ConfigRepo = Object.freeze({
   get: function(section, key) {
-    return phaseNotImplemented_('ConfigRepo.get');
+    return repoFindOne_('Config', {
+      Section: section,
+      Key: key,
+    });
   },
   set: function(section, key, value, version) {
-    return phaseNotImplemented_('ConfigRepo.set');
+    return repoUpsertWhere_('Config', {
+      Section: section,
+      Key: key,
+    }, {
+      Value: value,
+      ValueType: typeof value,
+      EditableByAdmin: true,
+    }, version, {
+      Version: 1,
+      Description: '',
+    });
   },
 });

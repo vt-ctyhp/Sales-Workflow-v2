@@ -1,8 +1,8 @@
 const Templates = Object.freeze({
   get: function(templateKey) {
-    return phaseNotImplemented_('Templates.get');
+    return repoGetByKey_('Templates', templateKey, 'TemplateKey');
   },
   listActive: function() {
-    return phaseNotImplemented_('Templates.listActive');
+    return repoFindMany_('Templates', { Active: true });
   },
 });

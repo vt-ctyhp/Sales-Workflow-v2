@@ -1,11 +1,15 @@
 const RootAppointments = Object.freeze({
   get: function(rootApptId) {
-    return phaseNotImplemented_('RootAppointments.get');
+    return repoGetByKey_('RootAppointments', rootApptId, 'RootApptID');
   },
   create: function(root) {
-    return phaseNotImplemented_('RootAppointments.create');
+    return repoAppend_('RootAppointments', root);
   },
   updateCurrentAppointment: function(rootApptId, apptId, version) {
-    return phaseNotImplemented_('RootAppointments.updateCurrentAppointment');
+    return repoUpdateByKey_('RootAppointments', rootApptId, {
+      CurrentAPPT_ID: apptId,
+      LatestAPPT_ID: apptId,
+      LastActivityAt: new Date(),
+    }, version, 'RootApptID');
   },
 });

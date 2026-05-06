@@ -1,11 +1,15 @@
 const Artifacts = Object.freeze({
   getByRoot: function(rootApptId) {
-    return phaseNotImplemented_('Artifacts.getByRoot');
+    return repoFindMany_('AppointmentArtifacts', { RootApptID: rootApptId });
   },
   registerUpload: function(artifact) {
-    return phaseNotImplemented_('Artifacts.registerUpload');
+    return repoAppend_('AppointmentArtifacts', artifact);
   },
   markApproved: function(artifactId, fields, version) {
-    return phaseNotImplemented_('Artifacts.markApproved');
+    return repoUpdateByKey_('AppointmentArtifacts', artifactId, mergeObjects_({
+      WorkflowStage: ARTIFACT_STAGE.APPROVED,
+      ApprovedAt: new Date(),
+      ApprovedByEmail: getActiveUserEmail_(),
+    }, fields || {}), version, 'ArtifactID');
   },
 });

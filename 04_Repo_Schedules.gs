@@ -1,11 +1,20 @@
 const Schedules = Object.freeze({
   list: function() {
-    return phaseNotImplemented_('Schedules.list');
+    return repoReadAll_('RosterSchedule');
   },
   save: function(rows) {
-    return phaseNotImplemented_('Schedules.save');
+    var saved = (rows || []).map(function(row) {
+      if (row.ScheduleID && repoGetByKey_('RosterSchedule', row.ScheduleID, 'ScheduleID').ok) {
+        return repoUpdateByKey_('RosterSchedule', row.ScheduleID, row, row.Version, 'ScheduleID');
+      }
+      return repoAppend_('RosterSchedule', row);
+    });
+    return { ok: true, data: saved };
   },
   upsertChange: function(row) {
-    return phaseNotImplemented_('Schedules.upsertChange');
+    if (row && row.ScheduleChangeID && repoGetByKey_('ScheduleChanges', row.ScheduleChangeID, 'ScheduleChangeID').ok) {
+      return repoUpdateByKey_('ScheduleChanges', row.ScheduleChangeID, row, row.Version, 'ScheduleChangeID');
+    }
+    return repoAppend_('ScheduleChanges', row);
   },
 });

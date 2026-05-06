@@ -1,14 +1,21 @@
 const Tasks = Object.freeze({
   get: function(taskId) {
-    return phaseNotImplemented_('Tasks.get');
+    return repoGetByKey_('TaskQueue', taskId, 'TaskID');
   },
   upsert: function(task) {
-    return phaseNotImplemented_('Tasks.upsert');
+    if (task && task.TaskID && repoGetByKey_('TaskQueue', task.TaskID, 'TaskID').ok) {
+      return repoUpdateByKey_('TaskQueue', task.TaskID, task, task.Version, 'TaskID');
+    }
+    return repoAppend_('TaskQueue', task);
   },
   complete: function(taskId, fields, version) {
-    return phaseNotImplemented_('Tasks.complete');
+    return repoUpdateByKey_('TaskQueue', taskId, mergeObjects_({
+      TaskState: TASK_STATE.COMPLETED,
+      CompletedAt: new Date(),
+      CompletedByEmail: getActiveUserEmail_(),
+    }, fields || {}), version, 'TaskID');
   },
   appendLog: function(entry) {
-    return phaseNotImplemented_('Tasks.appendLog');
+    return repoAppendHistory_('TaskLog', entry);
   },
 });

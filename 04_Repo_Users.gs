@@ -1,11 +1,17 @@
 const Users = Object.freeze({
   getByEmail: function(email) {
-    return phaseNotImplemented_('Users.getByEmail');
+    return repoGetByKey_('Users', normalizeEmail_(email), 'Email');
   },
   listActive: function() {
-    return phaseNotImplemented_('Users.listActive');
+    return repoFindMany_('Users', { Active: true });
   },
   upsert: function(user) {
-    return phaseNotImplemented_('Users.upsert');
+    var payload = mergeObjects_(user || {}, {
+      Email: normalizeEmail_(user && user.Email),
+    });
+    if (payload.Email && repoGetByKey_('Users', payload.Email, 'Email').ok) {
+      return repoUpdateByKey_('Users', payload.Email, payload, payload.Version, 'Email');
+    }
+    return repoAppend_('Users', payload);
   },
 });
