@@ -26,7 +26,7 @@ const DiamondService = Object.freeze({
     return Stones.previewLoupe360Sync(fileId, sourceRows || []);
   },
   applyLoupe360Sync: function(syncId, plan) {
-    return Stones.applyLoupe360Sync(syncId, plan || null);
+    return diamondApplyLoupe360Sync_(syncId, plan || null);
   },
 });
 
@@ -114,6 +114,23 @@ function diamondBulkMarkReturnInProgress_(stoneIds, notes) {
   }), result.version, serviceCollectInvalidations_(result, logs.map(function(log) {
     return log.invalidated || [];
   })));
+}
+
+function diamondApplyLoupe360Sync_(syncId, plan) {
+  var result = Stones.applyLoupe360Sync(syncId, plan || null);
+  if (!result.ok) {
+    return result;
+  }
+  var sync = result.data && result.data.sync || {};
+  return serviceOk_(mergeObjects_(result.data || {}, {
+    syncId: sync.SyncID || syncId || '',
+    sourceRows: Number(sync.SourceRows || 0),
+    matched: Number(sync.Matched || 0),
+    updated: Number(sync.Updated || 0),
+    appended: Number(sync.Appended || 0),
+    skipped: Number(sync.Skipped || 0),
+    conflicts: sync.ConflictsJson || [],
+  }), result.version || null, result.invalidated || []);
 }
 
 function diamondAppendBulkReturnLogs_(updates, notes) {
