@@ -31,7 +31,7 @@ function testIntakeRun_() {
 function testIntakeFreshCustomer_(suite) {
   var payload = testIntakePayload_(suite.ctx, 'fresh', 'create', {});
   var result = testIntakeCall_(suite, 'new booking creates root, appointment, customer, status', function() {
-    return ApiIntake.injectTest(payload);
+    return ApiIntake.injectTest(payload, testIntakeAdminContext_());
   }, function(output) {
     var root = RootAppointments.get(output.data.rootApptId);
     var event = Appointments.getById(output.data.apptId);
@@ -46,7 +46,7 @@ function testIntakeFreshCustomer_(suite) {
 
 function testIntakeIdempotency_(suite) {
   testIntakeCall_(suite, 're-running same payload does not duplicate event', function() {
-    var rerun = ApiIntake.injectTest(suite.freshPayload);
+    var rerun = ApiIntake.injectTest(suite.freshPayload, testIntakeAdminContext_());
     var matches = repoFindMany_('AppointmentEvents', {
       BookingSource: BOOKING_SOURCE.TEST,
       ExternalBookingId: suite.freshPayload.externalBookingId,
@@ -67,7 +67,7 @@ function testIntakeExistingCustomerMatch_(suite) {
       email: suite.freshPayload.email,
       phone: suite.freshPayload.phone,
       brand: suite.freshPayload.brand,
-    }));
+    }), testIntakeAdminContext_());
   }, function(output) {
     return output.ok && output.data.rootApptId === suite.freshResult.data.rootApptId && output.data.apptId !== suite.freshResult.data.apptId;
   });
@@ -84,9 +84,9 @@ function testIntakeRescheduleChain_(suite) {
     visitDateTime: '2026-05-13T10:00:00-07:00',
   });
   testIntakeCall_(suite, 'reschedule chain links A to B to C', function() {
-    var created = ApiIntake.injectTest(a);
-    var second = ApiIntake.injectTest(b);
-    var third = ApiIntake.injectTest(c);
+    var created = ApiIntake.injectTest(a, testIntakeAdminContext_());
+    var second = ApiIntake.injectTest(b, testIntakeAdminContext_());
+    var third = ApiIntake.injectTest(c, testIntakeAdminContext_());
     var firstEvent = Appointments.findByExternalId(BOOKING_SOURCE.TEST, a.externalBookingId);
     var secondEvent = Appointments.findByExternalId(BOOKING_SOURCE.TEST, b.externalBookingId);
     var thirdEvent = Appointments.findByExternalId(BOOKING_SOURCE.TEST, c.externalBookingId);
@@ -115,8 +115,8 @@ function testIntakeCancelActive_(suite) {
     externalBookingId: createPayload.externalBookingId,
   });
   testIntakeCall_(suite, 'cancel marks active appointment canceled', function() {
-    var created = ApiIntake.injectTest(createPayload);
-    var canceled = ApiIntake.injectTest(cancelPayload);
+    var created = ApiIntake.injectTest(createPayload, testIntakeAdminContext_());
+    var canceled = ApiIntake.injectTest(cancelPayload, testIntakeAdminContext_());
     var event = Appointments.findByExternalId(BOOKING_SOURCE.TEST, createPayload.externalBookingId);
     return {
       ok: created.ok && canceled.ok && event.ok,
@@ -137,9 +137,9 @@ function testIntakeCancelRescheduledActiveOnly_(suite) {
     externalBookingId: b.externalBookingId,
   });
   testIntakeCall_(suite, 'canceling rescheduled active event leaves prior event rescheduled', function() {
-    ApiIntake.injectTest(a);
-    ApiIntake.injectTest(b);
-    var canceled = ApiIntake.injectTest(cancelB);
+    ApiIntake.injectTest(a, testIntakeAdminContext_());
+    ApiIntake.injectTest(b, testIntakeAdminContext_());
+    var canceled = ApiIntake.injectTest(cancelB, testIntakeAdminContext_());
     var first = Appointments.findByExternalId(BOOKING_SOURCE.TEST, a.externalBookingId);
     var second = Appointments.findByExternalId(BOOKING_SOURCE.TEST, b.externalBookingId);
     return {
@@ -161,8 +161,8 @@ function testIntakeEdit_(suite) {
     visitType: 'Edited consult',
   });
   testIntakeCall_(suite, 'edit updates confirmed appointment in place', function() {
-    var created = ApiIntake.injectTest(createPayload);
-    var edited = ApiIntake.injectTest(editPayload);
+    var created = ApiIntake.injectTest(createPayload, testIntakeAdminContext_());
+    var edited = ApiIntake.injectTest(editPayload, testIntakeAdminContext_());
     var event = Appointments.getById(created.data.apptId);
     return {
       ok: created.ok && edited.ok && event.ok,
@@ -190,8 +190,8 @@ function testIntakeStatusChange_(suite, name, status) {
     status: status,
   });
   testIntakeCall_(suite, 'status change to ' + status, function() {
-    var created = ApiIntake.injectTest(createPayload);
-    var changed = ApiIntake.injectTest(statusPayload);
+    var created = ApiIntake.injectTest(createPayload, testIntakeAdminContext_());
+    var changed = ApiIntake.injectTest(statusPayload, testIntakeAdminContext_());
     var event = Appointments.getById(created.data.apptId);
     return {
       ok: created.ok && changed.ok && event.ok,
@@ -233,6 +233,10 @@ function testIntakeSuite_(ctx) {
     freshPayload: null,
     freshResult: null,
   };
+}
+
+function testIntakeAdminContext_() {
+  return apiTestContext_(ROLE.ADMIN, 'test.intake.admin@example.com');
 }
 
 function testIntakeCall_(suite, name, callback, assertion) {

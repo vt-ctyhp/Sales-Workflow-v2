@@ -5,8 +5,8 @@ const DiamondService = Object.freeze({
   submitOrderApproval: function(stoneIds, fields) {
     return diamondSubmitOrderApproval_(stoneIds, fields || {});
   },
-  assignInStock: function(stoneId, rootApptId, fields) {
-    return diamondAssignInStock_(stoneId, rootApptId, fields || {});
+  assignInStock: function(stoneId, rootApptId, fields, version) {
+    return diamondAssignInStock_(stoneId, rootApptId, fields || {}, version);
   },
   submitConfirmDelivery: function(stoneIds, fields) {
     return diamondSubmitConfirmDelivery_(stoneIds, fields || {});
@@ -14,8 +14,19 @@ const DiamondService = Object.freeze({
   submitDecisions: function(rootApptId, decisions, version) {
     return diamondSubmitDecisions_(rootApptId, decisions || [], version);
   },
+  bulkReturnCandidates: function(filters) {
+    return Stones.list(mergeObjects_({
+      returnEligible: true,
+    }, filters || {}));
+  },
   bulkMarkReturnInProgress: function(stoneIds, notes) {
     return diamondBulkMarkReturnInProgress_(stoneIds, notes);
+  },
+  previewLoupe360Sync: function(fileId, sourceRows) {
+    return Stones.previewLoupe360Sync(fileId, sourceRows || []);
+  },
+  applyLoupe360Sync: function(syncId, plan) {
+    return Stones.applyLoupe360Sync(syncId, plan || null);
   },
 });
 
@@ -57,8 +68,8 @@ function diamondSubmitOrderApproval_(stoneIds, fields) {
   return serviceOk_(result.data, result.version, result.invalidated);
 }
 
-function diamondAssignInStock_(stoneId, rootApptId, fields) {
-  var result = Stones.assignInStock(stoneId, rootApptId, fields);
+function diamondAssignInStock_(stoneId, rootApptId, fields, version) {
+  var result = Stones.assignInStock(stoneId, rootApptId, fields, version);
   if (!result.ok) {
     return result;
   }

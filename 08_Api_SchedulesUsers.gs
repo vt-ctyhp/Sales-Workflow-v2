@@ -1,23 +1,35 @@
 const ApiSchedules = Object.freeze({
-  list: function() {
-    return phaseNotImplemented_('Api.schedules.list');
+  list: function(context) {
+    return apiCall_('Api.schedules.list', context, function() {
+      return DashboardService.schedulesList();
+    });
   },
-  save: function(rows) {
-    return phaseNotImplemented_('Api.schedules.save');
+  save: function(rows, context) {
+    return apiCall_('Api.schedules.save', context, function(user) {
+      return DashboardService.schedulesSave(rows || [], user);
+    }, { target: 'RosterSchedule' });
   },
-  upsertChange: function(row) {
-    return phaseNotImplemented_('Api.schedules.upsertChange');
+  upsertChange: function(row, context) {
+    return apiCall_('Api.schedules.upsertChange', context, function(user) {
+      return DashboardService.schedulesUpsertChange(row || {}, user);
+    }, { target: row && row.ScheduleChangeID || 'ScheduleChanges' });
   },
-  deleteChange: function(id) {
-    return phaseNotImplemented_('Api.schedules.deleteChange');
+  deleteChange: function(id, context) {
+    return apiCall_('Api.schedules.deleteChange', context, function(user) {
+      return DashboardService.schedulesDeleteChange(id, user);
+    }, { target: id });
   },
 });
 
 const ApiUsers = Object.freeze({
-  list: function() {
-    return phaseNotImplemented_('Api.users.list');
+  list: function(context) {
+    return apiCall_('Api.users.list', context, function() {
+      return DashboardService.usersList();
+    });
   },
-  upsert: function(user) {
-    return phaseNotImplemented_('Api.users.upsert');
+  upsert: function(user, context) {
+    return apiCall_('Api.users.upsert', context, function(actor) {
+      return DashboardService.usersUpsert(user || {}, actor);
+    }, { target: user && (user.Email || user.email) || 'Users' });
   },
 });

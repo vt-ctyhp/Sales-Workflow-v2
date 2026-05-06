@@ -45,10 +45,13 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '06_Service_Diamonds.gs',
   '06_Service_Payments.gs',
   '06_Service_Artifacts.gs',
+  '06_Service_Auth.gs',
+  '06_Service_DashboardApi.gs',
   '07_Cache_Slices.gs',
   '07_Cache_CustomerDetail.gs',
   '07_Cache_TaskList.gs',
   '07_Cache_Diamonds.gs',
+  '08_Api_Core.gs',
   '08_Api_Bootstrap.gs',
   '08_Api_Tasks.gs',
   '08_Api_Customers.gs',
@@ -71,6 +74,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '11_Diag_CacheTests.gs',
   '11_Diag_RepoTests.gs',
   '11_Diag_ServiceTests.gs',
+  '11_Diag_ApiTests.gs',
   '11_Diag_TestIntake.gs',
   '11_Diag_Benchmarks.gs',
   '11_Diag_DriftCheck.gs',
@@ -81,10 +85,10 @@ const Diag = Object.freeze({
     return checkArchitectureRules_();
   },
   driftReport: function() {
-    return phaseNotImplemented_('Diag.driftReport');
+    return DriftCheck.run();
   },
   benchmarks: function() {
-    return phaseNotImplemented_('Diag.benchmarks');
+    return Benchmarks.run();
   },
   cacheTests: function() {
     return CacheTests.run();
@@ -94,6 +98,9 @@ const Diag = Object.freeze({
   },
   serviceTests: function() {
     return ServiceTests.run();
+  },
+  apiTests: function() {
+    return ApiTests.run();
   },
   testIntake: function() {
     return TestIntake.run();

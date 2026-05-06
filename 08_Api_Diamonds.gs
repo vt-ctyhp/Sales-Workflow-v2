@@ -1,35 +1,70 @@
 const ApiDiamonds = Object.freeze({
-  inStock: function(filters) {
-    return phaseNotImplemented_('Api.diamonds.inStock');
+  inStock: function(filters, context) {
+    return apiCall_('Api.diamonds.inStock', context, function() {
+      return CacheSlices.diamondInventory(filters || {});
+    });
   },
-  tracking: function() {
-    return phaseNotImplemented_('Api.diamonds.tracking');
+  tracking: function(filters, context) {
+    return apiCall_('Api.diamonds.tracking', context, function() {
+      return CacheSlices.diamondTracking(filters || {});
+    });
   },
-  bulkReturnCandidates: function() {
-    return phaseNotImplemented_('Api.diamonds.bulkReturnCandidates');
+  bulkReturnCandidates: function(filters, context) {
+    return apiCall_('Api.diamonds.bulkReturnCandidates', context, function() {
+      return DiamondService.bulkReturnCandidates(filters || {});
+    });
   },
-  bulkMarkReturnInProgress: function(stoneIds, version) {
-    return phaseNotImplemented_('Api.diamonds.bulkMarkReturnInProgress');
+  bulkMarkReturnInProgress: function(stoneIds, notes, version, context) {
+    return apiCall_('Api.diamonds.bulkMarkReturnInProgress', context, function() {
+      return DiamondService.bulkMarkReturnInProgress(stoneIds || [], notes || '');
+    }, { target: (stoneIds || []).join(',') });
   },
-  assignInStock: function(stoneId, rootApptId, version) {
-    return phaseNotImplemented_('Api.diamonds.assignInStock');
+  assignInStock: function(stoneId, rootApptId, fields, version, context) {
+    return apiCall_('Api.diamonds.assignInStock', context, function() {
+      return DiamondService.assignInStock(stoneId, rootApptId, fields || {}, version);
+    }, { target: stoneId });
   },
-  submitProposal: function(rootApptId, payload, version) {
-    return phaseNotImplemented_('Api.diamonds.submitProposal');
+  byRoot: function(rootApptId, context) {
+    return apiCall_('Api.diamonds.byRoot', context, function() {
+      return CacheSlices.diamondRoot(rootApptId);
+    }, { target: rootApptId });
   },
-  submitOrderApproval: function(stoneIds, version) {
-    return phaseNotImplemented_('Api.diamonds.submitOrderApproval');
+  submitProposal: function(rootApptId, payload, version, context) {
+    return apiCall_('Api.diamonds.submitProposal', context, function() {
+      return DiamondService.submitProposal(rootApptId, payload || {}, version);
+    }, { target: rootApptId });
   },
-  submitConfirmDelivery: function(stoneIds, version) {
-    return phaseNotImplemented_('Api.diamonds.submitConfirmDelivery');
+  submitOrderApproval: function(stoneIds, fields, context) {
+    return apiCall_('Api.diamonds.submitOrderApproval', context, function() {
+      return DiamondService.submitOrderApproval(stoneIds || [], fields || {});
+    }, { target: (stoneIds || []).join(',') });
   },
-  submitDecisions: function(rootApptId, decisions, version) {
-    return phaseNotImplemented_('Api.diamonds.submitDecisions');
+  submitConfirmDelivery: function(stoneIds, fields, context) {
+    return apiCall_('Api.diamonds.submitConfirmDelivery', context, function() {
+      return DiamondService.submitConfirmDelivery(stoneIds || [], fields || {});
+    }, { target: (stoneIds || []).join(',') });
   },
-  previewLoupe360Sync: function(fileId) {
-    return phaseNotImplemented_('Api.diamonds.previewLoupe360Sync');
+  submitDecisions: function(rootApptId, decisions, version, context) {
+    return apiCall_('Api.diamonds.submitDecisions', context, function() {
+      return DiamondService.submitDecisions(rootApptId, decisions || [], version);
+    }, { target: rootApptId });
   },
-  applyLoupe360Sync: function(fileId, plan) {
-    return phaseNotImplemented_('Api.diamonds.applyLoupe360Sync');
+  previewLoupe360Sync: function(fileId, sourceRows, context) {
+    if (apiIsContext_(sourceRows)) {
+      context = sourceRows;
+      sourceRows = [];
+    }
+    return apiCall_('Api.diamonds.previewLoupe360Sync', context, function() {
+      return DiamondService.previewLoupe360Sync(fileId, sourceRows || []);
+    }, { target: fileId });
+  },
+  applyLoupe360Sync: function(syncId, plan, context) {
+    if (apiIsContext_(plan)) {
+      context = plan;
+      plan = null;
+    }
+    return apiCall_('Api.diamonds.applyLoupe360Sync', context, function() {
+      return DiamondService.applyLoupe360Sync(syncId, plan || null);
+    }, { target: syncId });
   },
 });
