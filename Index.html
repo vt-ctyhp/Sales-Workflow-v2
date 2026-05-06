@@ -5,11 +5,2487 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Sales Workflow</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg-foundation: #F7F1EB;
+        --surface-card: #FBF7F1;
+        --surface-inset: #EFE8DD;
+        --ink-primary: #2A2725;
+        --ink-body: #4A4540;
+        --ink-muted: #8A8178;
+        --rule: #D4CFC4;
+        --accent: #E91D79;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg-foundation);
+        color: var(--ink-body);
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .app {
+        min-height: 100vh;
+      }
+
+      .login-wrap {
+        display: grid;
+        min-height: 100vh;
+        place-items: center;
+        padding: 32px;
+      }
+
+      .login-panel {
+        width: min(520px, 100%);
+        background: var(--surface-card);
+        border: 1px solid var(--rule);
+        padding: 36px;
+      }
+
+      .eyebrow {
+        color: var(--ink-muted);
+        font-size: 11px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        color: var(--ink-primary);
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-weight: 400;
+        line-height: 1.05;
+      }
+
+      h1 {
+        margin-top: 8px;
+        font-size: 42px;
+      }
+
+      h2 {
+        font-size: 30px;
+      }
+
+      h3 {
+        font-size: 22px;
+      }
+
+      .rule {
+        margin: 24px 0;
+        border-top: 1px solid var(--rule);
+      }
+
+      label {
+        display: block;
+        margin-top: 20px;
+      }
+
+      label span {
+        display: block;
+        margin-bottom: 6px;
+        color: var(--ink-muted);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      input,
+      select {
+        width: 100%;
+        border: 0;
+        border-bottom: 1px solid var(--rule);
+        border-radius: 0;
+        background: transparent;
+        color: var(--ink-primary);
+        padding: 7px 2px;
+      }
+
+      input:focus,
+      select:focus {
+        outline: none;
+        border-bottom: 2px solid var(--accent);
+        padding-bottom: 6px;
+      }
+
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-top: 24px;
+      }
+
+      .btn {
+        min-height: 40px;
+        border: 1px solid var(--ink-primary);
+        border-radius: 2px;
+        background: transparent;
+        color: var(--ink-primary);
+        padding: 11px 18px;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        transition: background-color 140ms ease-out, color 140ms ease-out, border-color 140ms ease-out;
+      }
+
+      .btn:hover,
+      .btn.is-active {
+        background: var(--ink-primary);
+        color: var(--bg-foundation);
+      }
+
+      .btn.primary {
+        background: var(--ink-primary);
+        color: var(--bg-foundation);
+      }
+
+      .btn.primary:hover {
+        border-color: var(--accent);
+        background: var(--accent);
+      }
+
+      .btn.small {
+        min-height: 32px;
+        padding: 7px 10px;
+        font-size: 10px;
+      }
+
+      .btn:disabled {
+        cursor: default;
+        opacity: 0.5;
+      }
+
+      .error {
+        margin-top: 16px;
+        color: var(--accent);
+      }
+
+      .muted {
+        color: var(--ink-muted);
+      }
+
+      .shell {
+        max-width: 1320px;
+        min-height: 100vh;
+        margin: 0 auto;
+        padding: 32px;
+      }
+
+      .masthead {
+        display: flex;
+        gap: 24px;
+        align-items: flex-end;
+        justify-content: space-between;
+        padding: 8px 0 28px;
+      }
+
+      .masthead h1 {
+        font-size: 44px;
+      }
+
+      .masthead-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        align-items: center;
+        justify-content: flex-end;
+      }
+
+      .user-chip {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        min-width: 220px;
+      }
+
+      .user-avatar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--ink-primary);
+        color: var(--bg-foundation);
+        font-size: 13px;
+        font-weight: 500;
+      }
+
+      .user-name {
+        display: block;
+        overflow: hidden;
+        color: var(--ink-primary);
+        font-weight: 500;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .user-roles {
+        display: block;
+        overflow: hidden;
+        margin-top: 3px;
+        color: var(--ink-muted);
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .toolbar-nav {
+        display: flex;
+        gap: 28px;
+        align-items: stretch;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--rule);
+      }
+
+      .nav-groups {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 30px;
+        min-width: 0;
+      }
+
+      .nav-group {
+        display: grid;
+        gap: 8px;
+        min-width: 120px;
+        padding: 12px 0;
+      }
+
+      .nav-group-label {
+        color: var(--ink-muted);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .nav-items {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px 14px;
+      }
+
+      .nav-items button {
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--ink-muted);
+        padding: 8px 0 10px;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-align: left;
+        text-transform: uppercase;
+      }
+
+      .nav-items button:hover,
+      .nav-items button.is-active {
+        color: var(--ink-primary);
+        border-bottom-color: var(--ink-primary);
+      }
+
+      .toolbar-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: flex-end;
+        padding: 14px 0;
+      }
+
+      .main {
+        min-width: 0;
+        padding-top: 24px;
+      }
+
+      .topbar {
+        display: flex;
+        gap: 24px;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 22px;
+      }
+
+      .status-line {
+        min-height: 20px;
+        margin-top: 8px;
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+
+      .content {
+        margin-top: 24px;
+      }
+
+      .content.loading {
+        border: 1px solid var(--rule);
+        background: var(--surface-inset);
+        padding: 24px;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: end;
+        margin-bottom: 24px;
+      }
+
+      .toolbar label {
+        min-width: 180px;
+        margin: 0;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .grid.compact {
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      .metric,
+      .panel {
+        border: 1px solid var(--rule);
+        background: var(--surface-card);
+        padding: 20px;
+      }
+
+      .panel-header {
+        border-bottom: 1px solid var(--rule);
+        margin-bottom: 18px;
+        padding-bottom: 14px;
+      }
+
+      .metric strong {
+        display: block;
+        color: var(--ink-primary);
+        font-size: 28px;
+        font-variant-numeric: tabular-nums;
+        font-weight: 400;
+      }
+
+      .stat-value {
+        color: var(--ink-primary);
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 30px;
+        line-height: 1;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+        gap: 24px;
+        align-items: start;
+      }
+
+      .split.wide-main {
+        grid-template-columns: minmax(0, 1fr) minmax(360px, 430px);
+      }
+
+      .list-stack {
+        display: grid;
+        gap: 12px;
+      }
+
+      .pipeline-board {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .pipeline-column {
+        border: 1px solid var(--rule);
+        background: var(--surface-card);
+        padding: 14px;
+      }
+
+      .pipeline-column-head {
+        border-bottom: 1px solid var(--rule);
+        margin-bottom: 10px;
+        padding-bottom: 10px;
+      }
+
+      .task-card,
+      .customer-card,
+      .stone-card,
+      .return-card,
+      .activity-card {
+        width: 100%;
+        border: 1px solid var(--rule);
+        background: var(--surface-card);
+        color: var(--ink-body);
+        padding: 18px;
+        text-align: left;
+      }
+
+      .return-card {
+        display: block;
+        margin: 0;
+      }
+
+      .task-card:hover,
+      .customer-card:hover,
+      .stone-card:hover,
+      .return-card:hover {
+        background: var(--surface-inset);
+      }
+
+      .task-card.overdue,
+      .return-card.issue,
+      .stone-card.issue {
+        border-top: 2px solid var(--accent);
+      }
+
+      .card-top {
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
+
+      .card-main {
+        min-width: 0;
+      }
+
+      .card-title {
+        color: var(--ink-primary);
+        font-size: 16px;
+        font-weight: 500;
+        overflow-wrap: anywhere;
+      }
+
+      .card-side {
+        display: grid;
+        gap: 8px;
+        justify-items: end;
+        min-width: 74px;
+      }
+
+      .meta {
+        color: var(--ink-muted);
+        font-size: 12px;
+        line-height: 1.5;
+      }
+
+      .badge,
+      .brand-chip {
+        display: inline-block;
+        margin: 10px 8px 0 0;
+        background: var(--surface-inset);
+        color: var(--ink-body);
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        line-height: 1;
+        padding: 5px 7px;
+        text-transform: uppercase;
+      }
+
+      .brand-chip.hp {
+        border: 1px solid #F3B8D5;
+        background: #FCEAF3;
+        color: #A71358;
+      }
+
+      .brand-chip.vvs {
+        border: 1px solid #E8C75C;
+        background: #FFF4CC;
+        color: #725500;
+      }
+
+      .detail-section {
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 18px;
+        margin-bottom: 18px;
+      }
+
+      .detail-section:last-child {
+        border-bottom: 0;
+        margin-bottom: 0;
+        padding-bottom: 0;
+      }
+
+      .template-box {
+        min-height: 0;
+        background: var(--surface-inset);
+        color: var(--ink-primary);
+        line-height: 1.55;
+        overflow-wrap: anywhere;
+        padding: 16px;
+        white-space: pre-wrap;
+      }
+
+      .link-list {
+        display: grid;
+        gap: 10px;
+      }
+
+      .link-tile {
+        display: block;
+        border: 1px solid var(--rule);
+        background: var(--surface-inset);
+        color: #0A5CA8;
+        overflow-wrap: anywhere;
+        padding: 12px;
+        text-decoration: none;
+      }
+
+      .link-tile:hover {
+        border-color: var(--ink-primary);
+        color: var(--ink-primary);
+      }
+
+      .customer-hero {
+        display: grid;
+        gap: 18px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 20px;
+        margin-bottom: 20px;
+      }
+
+      .customer-hero h3 {
+        font-size: 34px;
+        overflow-wrap: anywhere;
+      }
+
+      .section-grid {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .section-grid.two {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .mini-table {
+        border-top: 1px solid var(--rule);
+        display: grid;
+      }
+
+      .mini-row {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        border-bottom: 1px solid var(--rule);
+        padding: 12px 0;
+      }
+
+      .mini-row:last-child {
+        border-bottom: 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: var(--surface-card);
+        font-size: 13px;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--rule);
+        padding: 11px 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      th {
+        background: var(--surface-inset);
+        color: var(--ink-muted);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      tr:hover td {
+        background: var(--surface-inset);
+      }
+
+      .number {
+        font-variant-numeric: tabular-nums;
+      }
+
+      .row-link {
+        border: 0;
+        background: transparent;
+        color: var(--ink-primary);
+        padding: 0;
+        text-align: left;
+      }
+
+      .detail-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .detail-row {
+        display: grid;
+        grid-template-columns: 130px minmax(0, 1fr);
+        gap: 16px;
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 12px;
+      }
+
+      .detail-row span:first-child {
+        color: var(--ink-muted);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      .empty,
+      .loading {
+        border: 1px solid var(--rule);
+        background: var(--surface-inset);
+        padding: 24px;
+      }
+
+      .loading .eyebrow {
+        display: block;
+      }
+
+      .calendar-nav {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 16px;
+      }
+
+      .calendar-month {
+        color: var(--ink-primary);
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 28px;
+      }
+
+      .calendar-days {
+        display: grid;
+        grid-template-columns: repeat(7, minmax(0, 1fr));
+        border-left: 1px solid var(--rule);
+        border-top: 1px solid var(--rule);
+        background: var(--surface-card);
+      }
+
+      .calendar-weekday {
+        border-right: 1px solid var(--rule);
+        border-bottom: 1px solid var(--rule);
+        background: var(--surface-inset);
+        color: var(--ink-muted);
+        font-size: 10px;
+        letter-spacing: 0.14em;
+        padding: 9px 8px;
+        text-transform: uppercase;
+      }
+
+      .day {
+        min-height: 132px;
+        border-right: 1px solid var(--rule);
+        border-bottom: 1px solid var(--rule);
+        background: var(--surface-card);
+        padding: 8px;
+      }
+
+      .day.outside {
+        background: var(--bg-foundation);
+      }
+
+      .day.today {
+        background: var(--surface-inset);
+      }
+
+      .day-num {
+        color: var(--ink-muted);
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      .appt {
+        display: block;
+        width: 100%;
+        border: 0;
+        border-bottom: 1px solid var(--rule);
+        background: transparent;
+        color: var(--ink-body);
+        margin-top: 7px;
+        padding: 6px 0;
+        font-size: 12px;
+        line-height: 1.35;
+        text-align: left;
+      }
+
+      .appt:hover {
+        color: var(--ink-primary);
+      }
+
+      .form-card {
+        border: 1px solid var(--rule);
+        background: var(--surface-card);
+        padding: 22px;
+      }
+
+      .check-grid {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        margin-top: 10px;
+      }
+
+      .check-row {
+        display: flex;
+        gap: 8px;
+        align-items: flex-start;
+        margin: 0;
+        color: var(--ink-body);
+        font-size: 13px;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+
+      .check-row input {
+        width: auto;
+        margin-top: 2px;
+      }
+
+      @media (max-width: 980px) {
+        .split {
+          grid-template-columns: 1fr;
+        }
+
+        .grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .grid.compact,
+        .section-grid,
+        .section-grid.two {
+          grid-template-columns: 1fr;
+        }
+
+        .masthead,
+        .toolbar-nav,
+        .topbar,
+        .customer-hero {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .toolbar-actions {
+          justify-content: flex-start;
+          padding-top: 0;
+        }
+      }
+
+      @media (max-width: 620px) {
+        .main,
+        .shell,
+        .login-panel {
+          padding: 24px;
+        }
+
+        .topbar,
+        .actions {
+          display: block;
+        }
+
+        .actions .btn {
+          margin-top: 8px;
+          width: 100%;
+        }
+
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .calendar-days {
+          grid-template-columns: 1fr;
+        }
+
+        .calendar-weekday,
+        .day.outside {
+          display: none;
+        }
+
+        .day {
+          border-right: 0;
+        }
+      }
+    </style>
   </head>
   <body>
-    <main>
-      <h1>Sales Workflow</h1>
-      <p>Dashboard client is reserved for phase 6.</p>
-    </main>
+    <div id="app" class="app"></div>
+    <script>
+      const STORAGE_KEY = 'salesWorkflow.sessionToken';
+      const VIEW_LABELS = {
+        tasks: 'Tasks',
+        myQueue: 'My Queue',
+        coverage: 'JOC Coverage',
+        jocCoverage: 'JOC Coverage',
+        cleanup: 'Cleanup',
+        customers: 'Customers',
+        customerSearch: 'Customer Search',
+        customerPipeline: 'Customer Pipeline',
+        calendar: 'Calendar',
+        diamonds: 'Diamonds',
+        diamondInventory: 'Diamond Inventory',
+        diamondTracking: 'Diamond Tracking',
+        bulkReturns: 'Bulk Returns',
+        payments: 'Payments',
+        admin: 'Admin',
+        adminReview: 'Admin Review',
+        schedules: 'Schedules',
+        users: 'Manage Users',
+        manageUsers: 'Manage Users',
+        diagnostics: 'Diagnostics'
+      };
+      const ADMIN_VIEWS = ['admin', 'adminReview', 'schedules', 'manageUsers'];
+      const DIAMOND_VIEWS = ['bulkReturns'];
+      const VIEW_PERMISSIONS = {
+        myQueue: 'Api.tasks.list',
+        calendar: 'Api.calendar.getMonth',
+        customerSearch: 'Api.customers.search',
+        customerPipeline: 'Api.customers.search',
+        diamondInventory: 'Api.diamonds.inStock',
+        diamondTracking: 'Api.diamonds.tracking',
+        bulkReturns: 'Api.diamonds.bulkReturnCandidates',
+        payments: 'Api.payments.history',
+        admin: 'Api.admin.dashboard',
+        adminReview: 'Api.admin.dashboard',
+        schedules: 'Api.schedules.list',
+        manageUsers: 'Api.users.list',
+        diagnostics: 'Api.diag.driftReport'
+      };
+      const NAV_GROUPS = [
+        { label: 'Work', views: ['myQueue', 'jocCoverage', 'cleanup', 'calendar'] },
+        { label: 'Customers', views: ['customerSearch', 'customerPipeline'] },
+        { label: 'Diamonds', views: ['diamondInventory', 'diamondTracking', 'bulkReturns'] },
+        { label: 'Admin', views: ['admin', 'adminReview', 'schedules', 'manageUsers'] },
+        { label: 'Support', views: ['payments', 'diagnostics'] }
+      ];
+      const VIEW_ALIASES = {
+        tasks: 'myQueue',
+        coverage: 'jocCoverage',
+        customers: 'customerSearch',
+        diamonds: 'diamondInventory',
+        users: 'manageUsers'
+      };
+      const ROLE_OPTIONS = ['Admin', 'Client Advisor', 'JOC', 'Diamond Order Admin', 'Diamond Order Assistant', 'Read-Only Viewer'];
+      const state = {
+        token: localStorage.getItem(STORAGE_KEY) || '',
+        user: null,
+        visibleViews: [],
+        view: 'myQueue',
+        busy: false,
+        status: '',
+        data: {},
+        selected: {},
+        clientTimings: [],
+        uploadPoll: null,
+        uploadPollStartedAt: 0,
+        uploadPollTaskId: ''
+      };
+
+      document.addEventListener('DOMContentLoaded', init);
+
+      function init() {
+        if (!state.token) {
+          renderLogin();
+          return;
+        }
+        boot();
+      }
+
+      function server(name, ...args) {
+        return new Promise((resolve, reject) => {
+          const started = performance.now();
+          const runner = google.script.run
+            .withSuccessHandler(response => {
+              recordTiming(name, started, response);
+              resolve(response);
+            })
+            .withFailureHandler(error => {
+              recordTiming(name, started, null, error);
+              reject(error);
+            });
+          runner[name](...args);
+        });
+      }
+
+      async function boot() {
+        setBusy(true, 'Loading dashboard');
+        try {
+          const response = await server('webBootstrap', state.token);
+          if (!response || !response.ok) {
+            throw new Error(errorMessage(response));
+          }
+          const payload = response.data || {};
+          state.user = payload.user;
+          state.visibleViews = effectiveViews(payload.visibleViews || ['tasks'], payload.permissions || {});
+          state.view = state.visibleViews.indexOf(state.view) === -1 ? state.visibleViews[0] : state.view;
+          state.data.bootstrap = payload;
+          renderShell();
+          await loadView(state.view);
+        } catch (error) {
+          localStorage.removeItem(STORAGE_KEY);
+          state.token = '';
+          renderLogin(error.message);
+        } finally {
+          setBusy(false, '');
+        }
+      }
+
+      function renderLogin(message) {
+        document.getElementById('app').innerHTML = `
+          <div class="login-wrap">
+            <section class="login-panel">
+              <div class="eyebrow">Sales Workflow</div>
+              <h1>Operations Dashboard</h1>
+              <div class="rule"></div>
+              <form id="login-form">
+                <label><span>Email</span><input id="login-email" type="email" autocomplete="username" required></label>
+                <label><span>Password</span><input id="login-password" type="password" autocomplete="current-password" required></label>
+                ${message ? `<div class="error">${escapeHtml(message)}</div>` : ''}
+                <div class="actions">
+                  <button class="btn primary" type="submit">Sign In</button>
+                  <button class="btn" type="button" id="show-bootstrap">Create Admin</button>
+                </div>
+              </form>
+              <form id="bootstrap-form" style="display:none">
+                <div class="rule"></div>
+                <div class="eyebrow">First Admin</div>
+                <label><span>Name</span><input id="bootstrap-name" type="text"></label>
+                <label><span>Email</span><input id="bootstrap-email" type="email" required></label>
+                <label><span>Password</span><input id="bootstrap-password" type="password" minlength="8" required></label>
+                <div class="actions">
+                  <button class="btn primary" type="submit">Create Admin</button>
+                </div>
+              </form>
+            </section>
+          </div>`;
+        document.getElementById('login-form').addEventListener('submit', onLogin);
+        document.getElementById('show-bootstrap').addEventListener('click', () => {
+          document.getElementById('bootstrap-form').style.display = 'block';
+        });
+        document.getElementById('bootstrap-form').addEventListener('submit', onBootstrapAdmin);
+      }
+
+      async function onLogin(event) {
+        event.preventDefault();
+        setBusy(true, 'Signing in');
+        try {
+          const email = document.getElementById('login-email').value;
+          const password = document.getElementById('login-password').value;
+          const response = await server('webLogin', email, password);
+          if (!response || !response.ok) {
+            throw new Error(errorMessage(response));
+          }
+          state.token = response.data.session.token;
+          localStorage.setItem(STORAGE_KEY, state.token);
+          state.user = response.data.user;
+          let bootstrap = response.data.bootstrap || {};
+          if (!bootstrap.visibleViews) {
+            const bootstrapResponse = await server('webBootstrap', state.token);
+            if (!bootstrapResponse || !bootstrapResponse.ok) {
+              throw new Error(errorMessage(bootstrapResponse));
+            }
+            bootstrap = bootstrapResponse.data || {};
+          }
+          state.visibleViews = effectiveViews(bootstrap.visibleViews || ['tasks'], bootstrap.permissions || {});
+          state.user = bootstrap.user || state.user;
+          state.data.bootstrap = bootstrap;
+          state.view = state.visibleViews[0] || 'tasks';
+          renderShell();
+          await loadView(state.view);
+        } catch (error) {
+          renderLogin(error.message);
+        } finally {
+          setBusy(false, '');
+        }
+      }
+
+      async function onBootstrapAdmin(event) {
+        event.preventDefault();
+        setBusy(true, 'Creating admin');
+        try {
+          const payload = {
+            name: document.getElementById('bootstrap-name').value,
+            email: document.getElementById('bootstrap-email').value,
+            password: document.getElementById('bootstrap-password').value
+          };
+          const response = await server('webBootstrapAdmin', payload);
+          if (!response || !response.ok) {
+            throw new Error(errorMessage(response));
+          }
+          renderLogin('Admin created. Sign in with the credentials you just entered.');
+        } catch (error) {
+          renderLogin(error.message);
+          document.getElementById('bootstrap-form').style.display = 'block';
+        } finally {
+          setBusy(false, '');
+        }
+      }
+
+      function renderShell() {
+        const displayName = state.user && (state.user.name || state.user.email) || '';
+        const roleText = (state.user && state.user.roles || []).join(', ') || 'Workflow User';
+        document.getElementById('app').innerHTML = `
+          <div class="shell">
+            <header class="masthead">
+              <div>
+                <div class="eyebrow">Sales Workflow</div>
+                <h1>Team Queue</h1>
+              </div>
+              <div class="masthead-actions">
+                <div class="user-chip">
+                  <span class="user-avatar">${escapeHtml(userInitials(displayName))}</span>
+                  <span>
+                    <span class="user-name">${escapeHtml(displayName)}</span>
+                    <span class="user-roles">${escapeHtml(roleText)}</span>
+                  </span>
+                </div>
+                <button class="btn small" id="logout" type="button">Sign Out</button>
+              </div>
+            </header>
+            <section class="toolbar-nav">
+              <nav class="nav-groups" aria-label="Dashboard navigation">
+                ${navGroupsHtml()}
+              </nav>
+              <div class="toolbar-actions">
+                <button class="btn primary" id="refresh" type="button">Refresh</button>
+              </div>
+            </section>
+            <main class="main">
+              <div class="topbar">
+                <div>
+                  <div class="eyebrow">${escapeHtml(VIEW_LABELS[state.view] || state.view)}</div>
+                  <h2>${escapeHtml(titleForView(state.view))}</h2>
+                  <div id="status" class="status-line">${escapeHtml(state.status || '')}</div>
+                </div>
+              </div>
+              <section id="content" class="content loading"><span class="eyebrow">Loading</span></section>
+            </main>
+          </div>`;
+        document.querySelectorAll('[data-view]').forEach(button => {
+          button.addEventListener('click', () => {
+            clearUploadPoll();
+            state.view = button.dataset.view;
+            renderShell();
+            loadView(state.view);
+          });
+        });
+        document.getElementById('refresh').addEventListener('click', () => {
+          clearUploadPoll();
+          loadView(state.view);
+        });
+        document.getElementById('logout').addEventListener('click', onLogout);
+      }
+
+      function navGroupsHtml() {
+        const visible = state.visibleViews || [];
+        return NAV_GROUPS.map(group => {
+          const views = group.views.filter(view => visible.indexOf(view) !== -1);
+          if (!views.length) return '';
+          return `
+            <div class="nav-group">
+              <div class="nav-group-label">${escapeHtml(group.label)}</div>
+              <div class="nav-items">
+                ${views.map(view => `<button class="${view === state.view ? 'is-active' : ''}" data-view="${escapeAttr(view)}" type="button">${escapeHtml(VIEW_LABELS[view] || titleCase(view))}</button>`).join('')}
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      function userInitials(value) {
+        const parts = String(value || '').replace(/@.*/, '').trim().split(/\s+/).filter(Boolean);
+        if (!parts.length) return 'U';
+        if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      }
+
+      async function onLogout() {
+        try {
+          clearUploadPoll();
+          await server('webLogout', state.token);
+        } finally {
+          localStorage.removeItem(STORAGE_KEY);
+          state.token = '';
+          state.user = null;
+          renderLogin();
+        }
+      }
+
+      async function loadView(view) {
+        clearUploadPoll();
+        setContent(`<div class="loading"><span class="eyebrow">Loading</span></div>`, true);
+        setStatus('Loading ' + (VIEW_LABELS[view] || view));
+        try {
+          if (view === 'tasks' || view === 'myQueue') await loadTasks({ view: 'mine' });
+          else if (view === 'coverage' || view === 'jocCoverage') await loadTasks({ view: 'coverage' });
+          else if (view === 'cleanup') await loadTasks({ view: 'cleanup' });
+          else if (view === 'customers' || view === 'customerSearch') await loadCustomers('', 'search');
+          else if (view === 'customerPipeline') await loadCustomers('', 'pipeline');
+          else if (view === 'calendar') await loadCalendar();
+          else if (view === 'diamonds' || view === 'diamondInventory') await loadDiamonds('inventory');
+          else if (view === 'diamondTracking') await loadDiamonds('tracking');
+          else if (view === 'bulkReturns') await loadBulkReturns();
+          else if (view === 'payments') {
+            renderPayments();
+            setStatus('Ready');
+            return;
+          }
+          else if (view === 'admin') await loadAdmin();
+          else if (view === 'adminReview') await loadAdminReview();
+          else if (view === 'schedules') await loadSchedules();
+          else if (view === 'users' || view === 'manageUsers') await loadUsers();
+          else if (view === 'diagnostics') await loadDiagnostics();
+          setStatus('Ready' + latestTimingLabel());
+        } catch (error) {
+          setContent(`<div class="empty"><h3>Unable to load</h3><p class="error">${escapeHtml(error.message)}</p></div>`);
+          setStatus('Error');
+        }
+      }
+
+      async function loadTasks(view) {
+        const taskView = view || state.data.taskView || { view: 'mine' };
+        state.data.taskView = taskView;
+        const response = await requireOk(server('webTasksList', taskView, state.token));
+        const data = response.data || {};
+        state.data.tasks = data;
+        setContent(`
+          <div class="toolbar">
+            <label><span>View</span>
+              <select id="task-view">
+                ${taskViewOptions(taskView.view)}
+              </select>
+            </label>
+          </div>
+          <div class="grid compact">
+            ${metric('Total', data.count || 0)}
+            ${metric('Open', data.counts && data.counts.open || 0)}
+            ${metric('Claimed', data.counts && data.counts.claimed || 0)}
+            ${metric('Snoozed', data.counts && data.counts.snoozed || 0)}
+            ${metric('Blocked', data.counts && data.counts.blocked || 0)}
+          </div>
+          <div class="content split wide-main">
+            <div>${taskTable(data.tasks || [])}</div>
+            <div id="task-detail" class="panel">${emptyPanel('Select a task')}</div>
+          </div>`);
+        document.getElementById('task-view').addEventListener('change', event => {
+          loadTasks({ view: event.target.value });
+        });
+        bindTaskActions();
+      }
+
+      function taskTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No tasks</h3><p class="muted">The current queue is empty.</p></div>`;
+        return `<div class="list-stack">
+          ${rows.map(row => {
+            const dueValue = row.snoozedUntil || row.dueAt;
+            const overdue = isOverdue(dueValue) && row.taskState !== 'SNOOZED';
+            return `<button class="task-card ${overdue ? 'overdue' : ''}" type="button" data-task="${escapeAttr(row.taskId)}">
+              <div class="card-top">
+                <div class="card-main">
+                  <div class="card-title">${escapeHtml(taskTypeLabel(row.taskType))}</div>
+                  <div class="meta">${escapeHtml(row.customer && row.customer.customerName || row.rootApptId || 'No customer')} · ${escapeHtml(row.rootApptId || '')}</div>
+                  <div class="meta">Owner: ${escapeHtml(row.ownerName || row.ownerEmail || row.ownerRole || 'Unassigned')}</div>
+                </div>
+                <div class="card-side">
+                  ${brandChip(row.customer && row.customer.brand)}
+                  <div class="meta number">${escapeHtml(fmtDate(dueValue))}</div>
+                </div>
+              </div>
+              <span class="badge">${escapeHtml(row.taskState || '')}</span>
+              <span class="badge">${escapeHtml(row.ownerRole || '')}</span>
+              ${row.blockReason ? `<div class="error">${escapeHtml(row.blockReason)}</div>` : ''}
+              ${row.status && row.status.nextSteps ? `<div class="meta">${escapeHtml(row.status.nextSteps)}</div>` : ''}
+            </button>`;
+          }).join('')}
+        </div>`;
+      }
+
+      function bindTaskActions() {
+        document.querySelectorAll('[data-task]').forEach(button => {
+          button.addEventListener('click', () => showTask(button.dataset.task));
+        });
+      }
+
+      async function showTask(taskId) {
+        clearUploadPoll();
+        const response = await requireOk(server('webTaskDetail', taskId, state.token));
+        const data = response.data || {};
+        const task = data.task || {};
+        const customer = data.customer && data.customer.sections || {};
+        const identity = customer.identity || {};
+        const status = customer.status || {};
+        const owners = customer.owners || {};
+        const appointment = customer.currentAppointment && customer.currentAppointment.appointment || {};
+        document.getElementById('task-detail').innerHTML = `
+          <div class="panel-header">
+            <div class="eyebrow">${escapeHtml(task.TaskState || 'Task Detail')}</div>
+            <h3>${escapeHtml(taskTypeLabel(task.TaskType || taskId))}</h3>
+          </div>
+          <div class="detail-section">
+            <div class="customer-hero">
+              <div>
+                <div class="eyebrow">Customer</div>
+                <h3>${escapeHtml(identity.customerName || task.RootApptID || 'No customer')}</h3>
+                <div class="meta">${escapeHtml([identity.brand, identity.email, identity.phone].filter(Boolean).join(' | '))}</div>
+              </div>
+              <div>${brandChip(identity.brand)}</div>
+            </div>
+            <div class="detail-list">
+              ${detailRow('Root', task.RootApptID)}
+              ${detailRow('Appointment', [appointment.date, appointment.time, appointment.visitType].filter(Boolean).join(' | '))}
+              ${detailRow('Owner', task.OwnerName || task.OwnerEmail || task.OwnerRole)}
+              ${detailRow('Due', fmtDate(task.DueAt))}
+              ${detailRow('Snoozed', fmtDate(task.SnoozedUntil))}
+              ${detailRow('Version', task.Version)}
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="eyebrow">Customer State</div>
+            <div class="detail-list" style="margin-top:12px">
+              ${detailRow('Sales Stage', status.salesStage)}
+              ${detailRow('Conversion', status.conversionStatus)}
+              ${detailRow('Custom Order', status.customOrderStatus)}
+              ${detailRow('Advisor', owners.clientAdvisorName || owners.clientAdvisorEmail)}
+              ${detailRow('JOC', owners.jocOwnerName || owners.jocOwnerEmail)}
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="eyebrow">Next Steps</div>
+            <div class="template-box" style="margin-top:12px">${escapeHtml(status.nextSteps || 'No next steps recorded.')}</div>
+          </div>
+          <div class="actions">
+            <button class="btn small" data-task-action="claim" data-id="${escapeAttr(task.TaskID)}" data-version="${escapeAttr(task.Version)}">Claim</button>
+            <button class="btn small" data-task-action="ack" data-id="${escapeAttr(task.TaskID)}" data-version="${escapeAttr(task.Version)}">Acknowledge</button>
+            <button class="btn small" data-task-action="snooze" data-id="${escapeAttr(task.TaskID)}" data-version="${escapeAttr(task.Version)}">Snooze</button>
+          </div>`;
+        document.getElementById('task-detail').innerHTML += artifactUploadPanel(task.TaskID, task.RootApptID);
+        document.querySelectorAll('[data-task-action]').forEach(button => {
+          button.addEventListener('click', () => runTaskAction(button.dataset.taskAction, button.dataset.id, button.dataset.version));
+        });
+        document.querySelectorAll('[data-artifact-action]').forEach(button => {
+          button.addEventListener('click', () => runArtifactAction(button.dataset.artifactAction, button.dataset.task, button.dataset.root));
+        });
+      }
+
+      async function runTaskAction(action, taskId, version) {
+        setStatus('Saving task');
+        if (action === 'claim') await requireOk(server('webTaskClaim', taskId, Number(version), state.token));
+        if (action === 'ack') await requireOk(server('webTaskAcknowledge', taskId, Number(version), state.token));
+        if (action === 'snooze') {
+          const until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+          await requireOk(server('webTaskSnooze', taskId, until, 'Snoozed from dashboard', Number(version), state.token));
+        }
+        await loadTasks(state.data.taskView);
+      }
+
+      function artifactUploadPanel(taskId, rootId) {
+        if (!taskId) return '';
+        return `
+          <div class="rule"></div>
+          <div class="eyebrow">Drive Uploads</div>
+          <div class="actions">
+            <button class="btn small" data-artifact-action="folder" data-task="${escapeAttr(taskId)}" data-root="${escapeAttr(rootId)}">Open Folder</button>
+            <button class="btn small" data-artifact-action="sync" data-task="${escapeAttr(taskId)}" data-root="${escapeAttr(rootId)}">Poll Uploads</button>
+            <button class="btn small" data-artifact-action="brief" data-task="${escapeAttr(taskId)}" data-root="${escapeAttr(rootId)}">Artifact Brief</button>
+          </div>
+          <div id="artifact-output" class="status-line"></div>`;
+      }
+
+      async function runArtifactAction(action, taskId, rootId) {
+        const output = document.getElementById('artifact-output');
+        if (output) output.textContent = 'Working';
+        if (state.uploadPoll) {
+          window.clearInterval(state.uploadPoll);
+          state.uploadPoll = null;
+        }
+        if (action === 'folder') {
+          const response = await requireOk(server('webArtifactUploadFolder', taskId, 'recording', state.token));
+          const data = response.data || {};
+          const href = safeHref(data.folderUrl);
+          if (output) output.innerHTML = href ? `<a href="${escapeAttr(href)}" target="_blank" rel="noopener">Open Drive folder</a>` : 'Folder ready';
+          return;
+        }
+        if (action === 'brief') {
+          const response = await requireOk(server('webArtifactBrief', rootId, state.token));
+          const data = response.data || {};
+          if (output) output.textContent = data.aiBrief || data.brief || 'Brief loaded';
+          return;
+        }
+        state.uploadPollStartedAt = Date.now();
+        state.uploadPollTaskId = taskId;
+        const shouldContinue = await pollDriveUploads(taskId, output, 1);
+        if (shouldContinue && !state.uploadPoll) {
+          state.uploadPoll = window.setInterval(() => pollDriveUploads(taskId, output, 0), 20000);
+        }
+      }
+
+      async function pollDriveUploads(taskId, output, firstRun) {
+        if (state.uploadPollTaskId && state.uploadPollTaskId !== taskId) return false;
+        if (state.uploadPollStartedAt && Date.now() - state.uploadPollStartedAt > 10 * 60 * 1000) {
+          if (output) output.textContent = 'Upload polling stopped after 10 minutes';
+          clearUploadPoll();
+          return false;
+        }
+        const response = await requireOk(server('webArtifactSyncDriveUploads', taskId, state.token));
+        const count = response.data && response.data.count || 0;
+        if (output) output.textContent = (firstRun ? 'Registered ' : 'Polling. Registered ') + count + ' new upload' + (count === 1 ? '' : 's') + latestTimingLabel();
+        if (count > 0) clearUploadPoll();
+        return count === 0;
+      }
+
+      function clearUploadPoll() {
+        if (state.uploadPoll) {
+          window.clearInterval(state.uploadPoll);
+        }
+        state.uploadPoll = null;
+        state.uploadPollStartedAt = 0;
+        state.uploadPollTaskId = '';
+      }
+
+      async function loadCustomers(query, mode) {
+        const customerMode = mode || (state.view === 'customerPipeline' ? 'pipeline' : 'search');
+        const filters = { q: query || state.data.customerQuery || '' };
+        state.data.customerQuery = filters.q;
+        const response = await requireOk(server('webCustomersSearch', filters, state.token));
+        const rows = response.data && response.data.rows || [];
+        setContent(`
+          <div class="toolbar">
+            <label><span>Search</span><input id="customer-search" value="${escapeAttr(filters.q)}"></label>
+            <button class="btn" id="customer-search-button">Search</button>
+          </div>
+          <div class="split wide-main content">
+            <div>${customerMode === 'pipeline' ? customerPipelineBoard(rows) : customerTable(rows)}</div>
+            <div id="customer-detail" class="panel">${emptyPanel('Select a customer')}</div>
+          </div>`);
+        document.getElementById('customer-search-button').addEventListener('click', () => loadCustomers(document.getElementById('customer-search').value, customerMode));
+        document.getElementById('customer-search').addEventListener('keydown', event => {
+          if (event.key === 'Enter') loadCustomers(event.target.value, customerMode);
+        });
+        document.querySelectorAll('[data-root]').forEach(button => {
+          button.addEventListener('click', () => showCustomer(button.dataset.root));
+        });
+      }
+
+      function customerTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No customers</h3><p class="muted">No records match the current filter.</p></div>`;
+        return `<div class="list-stack">
+          ${rows.slice(0, 80).map(row => {
+            const identity = row.identity || {};
+            const owners = row.owners || {};
+            const status = row.status || {};
+            const order3d = row.order3d || {};
+            const wax = row.wax || {};
+            return `<button class="customer-card" type="button" data-root="${escapeAttr(row.rootApptId)}">
+              <div class="card-top">
+                <div class="card-main">
+                  <div class="card-title">${escapeHtml(identity.customerName || row.rootApptId)}</div>
+                  <div class="meta">${escapeHtml([identity.email, identity.phone].filter(Boolean).join(' | ') || row.rootApptId || '')}</div>
+                  <div class="meta">Advisor: ${escapeHtml(owners.clientAdvisorName || owners.clientAdvisorEmail || 'Unassigned')}</div>
+                </div>
+                <div class="card-side">
+                  ${brandChip(identity.brand)}
+                  <div class="meta">${escapeHtml(row.currentAppointment && row.currentAppointment.isActive === false ? 'Inactive' : 'Active')}</div>
+                </div>
+              </div>
+              <span class="badge">${escapeHtml(status.salesStage || 'No Stage')}</span>
+              ${status.conversionStatus ? `<span class="badge">${escapeHtml(status.conversionStatus)}</span>` : ''}
+              ${order3d.current3DState ? `<span class="badge">3D ${escapeHtml(order3d.current3DState)}</span>` : ''}
+              ${wax.requestStatus ? `<span class="badge">Wax ${escapeHtml(wax.requestStatus)}</span>` : ''}
+              ${status.nextSteps ? `<div class="meta">${escapeHtml(status.nextSteps)}</div>` : ''}
+            </button>`;
+          }).join('')}
+        </div>`;
+      }
+
+      function customerPipelineBoard(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No customers</h3><p class="muted">No records match the current filter.</p></div>`;
+        const groups = {};
+        rows.slice(0, 120).forEach(row => {
+          const stage = row.status && row.status.salesStage || 'Unspecified';
+          if (!groups[stage]) groups[stage] = [];
+          groups[stage].push(row);
+        });
+        return `<div class="pipeline-board">${Object.keys(groups).sort().map(stage => `
+          <section class="pipeline-column">
+            <div class="pipeline-column-head">
+              <div class="card-title">${escapeHtml(stage)}</div>
+              <div class="meta">${escapeHtml(groups[stage].length)} customer${groups[stage].length === 1 ? '' : 's'}</div>
+            </div>
+            <div class="list-stack">
+              ${groups[stage].slice(0, 12).map(row => {
+                const identity = row.identity || {};
+                const owners = row.owners || {};
+                const status = row.status || {};
+                return `<button class="customer-card" type="button" data-root="${escapeAttr(row.rootApptId)}">
+                  <div class="card-title">${escapeHtml(identity.customerName || row.rootApptId)}</div>
+                  <div class="meta">${escapeHtml(owners.clientAdvisorName || owners.clientAdvisorEmail || 'Unassigned')}</div>
+                  ${brandChip(identity.brand)}
+                  ${status.nextSteps ? `<div class="meta">${escapeHtml(status.nextSteps)}</div>` : ''}
+                </button>`;
+              }).join('')}
+              ${groups[stage].length > 12 ? `<div class="meta">+${escapeHtml(groups[stage].length - 12)} more in this stage</div>` : ''}
+            </div>
+          </section>`).join('')}</div>`;
+      }
+
+      async function showCustomer(rootId) {
+        const response = await requireOk(server('webCustomerDetail', rootId, 'standard', state.token));
+        const sections = response.data && response.data.sections || {};
+        const identity = sections.identity || {};
+        const owners = sections.owners || {};
+        const status = sections.status || {};
+        const appointment = sections.currentAppointment && sections.currentAppointment.appointment || {};
+        const order3d = sections.order3d || {};
+        const diamondViewing = sections.diamondViewing || {};
+        const wax = sections.wax || {};
+        const links = sections.appointmentLinks || {};
+        const aiBrief = sections.aiBrief || null;
+        document.getElementById('customer-detail').innerHTML = `
+          <div class="customer-hero">
+            <div>
+              <div class="eyebrow">Customer</div>
+              <h3>${escapeHtml(identity.customerName || rootId)}</h3>
+              <div class="meta">${escapeHtml([identity.email, identity.phone, identity.leadSource].filter(Boolean).join(' | '))}</div>
+            </div>
+            <div>${brandChip(identity.brand)}</div>
+          </div>
+          <div class="detail-section">
+            <div class="section-grid two">
+              <div>
+                <div class="eyebrow">Owners</div>
+                <div class="detail-list" style="margin-top:12px">
+                  ${detailRow('Advisor', owners.clientAdvisorName || owners.clientAdvisorEmail)}
+                  ${detailRow('JOC', owners.jocOwnerName || owners.jocOwnerEmail)}
+                  ${detailRow('Root', rootId)}
+                </div>
+              </div>
+              <div>
+                <div class="eyebrow">Current Status</div>
+                <div class="detail-list" style="margin-top:12px">
+                  ${detailRow('Sales Stage', status.salesStage)}
+                  ${detailRow('Conversion', status.conversionStatus)}
+                  ${detailRow('Custom Order', status.customOrderStatus)}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="eyebrow">Next Steps</div>
+            <div class="template-box" style="margin-top:12px">${escapeHtml(status.nextSteps || 'No next steps recorded.')}</div>
+          </div>
+          <div class="detail-section">
+            <div class="section-grid two">
+              <div>
+                <div class="eyebrow">Appointment</div>
+                <div class="detail-list" style="margin-top:12px">
+                  ${detailRow('Date', [appointment.date, appointment.time].filter(Boolean).join(' '))}
+                  ${detailRow('Type', appointment.visitType)}
+                  ${detailRow('Status', appointment.appointmentStatus)}
+                </div>
+              </div>
+              <div>
+                <div class="eyebrow">Order Work</div>
+                <div class="detail-list" style="margin-top:12px">
+                  ${detailRow('SO Number', order3d.SONumber || order3d.soNumber)}
+                  ${detailRow('3D State', order3d.Current3DState || order3d.current3DState)}
+                  ${detailRow('Wax', wax && wax.requestStatus)}
+                  ${detailRow('Diamonds', diamondViewing && (diamondViewing.count || diamondViewing.stoneCount))}
+                </div>
+              </div>
+            </div>
+          </div>
+          ${aiBrief ? `<div class="detail-section"><div class="eyebrow">Latest AI Brief</div><div class="template-box" style="margin-top:12px">${escapeHtml([aiBrief.workflowStage, aiBrief.summaryJsonFileId ? 'Summary JSON ready' : '', safeHref(aiBrief.summaryDocUrl) ? 'Summary document available' : ''].filter(Boolean).join('\\n') || 'Brief metadata available.')}</div></div>` : ''}
+          <div class="detail-section">
+            <div class="eyebrow">Finance</div>
+            <div class="template-box" style="margin-top:12px">${escapeHtml(paymentLine(sections.finance) || 'No payment summary available.')}</div>
+          </div>
+          ${customerLinksHtml(identity, links, order3d)}`;
+      }
+
+      async function loadCalendar(monthKey) {
+        const key = monthKey || state.data.monthKey || currentMonthKey();
+        state.data.monthKey = key;
+        const response = await requireOk(server('webCalendarMonth', key, state.token));
+        const data = response.data || {};
+        state.data.calendar = data;
+        setContent(`
+          <div class="split wide-main">
+            <div>
+              <div class="calendar-nav">
+                <button class="btn small" id="month-prev" type="button">Previous</button>
+                <div>
+                  <div class="eyebrow">Appointment Calendar</div>
+                  <div class="calendar-month">${escapeHtml(monthLabel(key))}</div>
+                </div>
+                <button class="btn small" id="month-next" type="button">Next</button>
+              </div>
+              <div class="toolbar">
+                <label><span>Month</span><input id="month-key" type="month" value="${escapeAttr(key)}"></label>
+                <button class="btn" id="month-load" type="button">Load</button>
+              </div>
+              ${calendarGrid(key, data.days || {})}
+            </div>
+            <div id="calendar-detail" class="panel">${calendarSummaryPanel(data)}</div>
+          </div>`);
+        document.getElementById('month-load').addEventListener('click', () => loadCalendar(document.getElementById('month-key').value));
+        document.getElementById('month-prev').addEventListener('click', () => loadCalendar(shiftMonthKey(key, -1)));
+        document.getElementById('month-next').addEventListener('click', () => loadCalendar(shiftMonthKey(key, 1)));
+        document.querySelectorAll('[data-calendar-appt]').forEach(button => {
+          button.addEventListener('click', () => showCalendarAppointment(button.dataset.calendarAppt));
+        });
+      }
+
+      function calendarGrid(monthKey, days) {
+        const first = new Date(monthKey + '-01T00:00:00');
+        const start = new Date(first.getFullYear(), first.getMonth(), 1 - first.getDay());
+        const cells = [];
+        const todayKey = dateKey(new Date());
+        const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(label => `<div class="calendar-weekday">${label}</div>`).join('');
+        for (let index = 0; index < 42; index += 1) {
+          const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + index);
+          const key = dateKey(date);
+          const rows = days[key] || [];
+          const classes = ['day'];
+          if (date.getMonth() !== first.getMonth()) classes.push('outside');
+          if (key === todayKey) classes.push('today');
+          cells.push(`<div class="${classes.join(' ')}">
+            <div class="day-num">${date.getDate()}</div>
+            ${rows.slice(0, 4).map(appt => `<button class="appt" type="button" data-calendar-appt="${escapeAttr(appt.apptId || appt.rootApptId || '')}">
+              <span class="meta">${escapeHtml(formatTime(appt.time || appt.start || ''))}</span><br>
+              ${escapeHtml(appt.customerName || appt.visitType || appt.apptId || '')}
+            </button>`).join('')}
+            ${rows.length > 4 ? `<div class="appt muted">+${rows.length - 4} more</div>` : ''}
+          </div>`);
+        }
+        return `<div class="calendar-days">${weekday}${cells.join('')}</div>`;
+      }
+
+      function calendarSummaryPanel(data) {
+        const eventCount = data && (data.eventCount || countCalendarEvents(data.days || {})) || 0;
+        return `
+          <div class="eyebrow">Calendar Detail</div>
+          <h3>${escapeHtml(monthLabel(state.data.monthKey || currentMonthKey()))}</h3>
+          <div class="rule"></div>
+          <div class="template-box">${escapeHtml(eventCount)} appointment${eventCount === 1 ? '' : 's'} in this month.</div>
+          <div class="empty" style="margin-top:16px">Select an appointment to see the available calendar payload.</div>`;
+      }
+
+      function showCalendarAppointment(key) {
+        const appointment = findCalendarAppointment(key);
+        if (!appointment) return;
+        const folder = safeHref(appointment.folderUrl);
+        document.getElementById('calendar-detail').innerHTML = `
+          <div class="eyebrow">${escapeHtml(appointment.visitType || 'Appointment')}</div>
+          <h3>${escapeHtml(appointment.customerName || appointment.apptId || 'Appointment')}</h3>
+          <div class="rule"></div>
+          <div class="detail-list">
+            ${detailRow('Date', [appointment.date, formatTime(appointment.time || appointment.start)].filter(Boolean).join(' '))}
+            ${detailRow('Status', appointment.appointmentStatus)}
+            ${detailRow('Brand', appointment.brand)}
+            ${detailRow('Root', appointment.rootApptId)}
+            ${detailRow('APPT', appointment.apptId)}
+            ${detailRow('Email', appointment.customerEmail)}
+          </div>
+          ${folder ? `<div class="actions"><a class="btn small" href="${escapeAttr(folder)}" target="_blank" rel="noopener">Open Folder</a></div>` : ''}`;
+      }
+
+      function findCalendarAppointment(key) {
+        const days = state.data.calendar && state.data.calendar.days || {};
+        const rows = Object.keys(days).reduce((all, dayKey) => all.concat(days[dayKey] || []), []);
+        return rows.find(row => String(row.apptId || row.rootApptId || '') === String(key)) || null;
+      }
+
+      async function loadDiamonds(mode) {
+        mode = mode || (state.view === 'diamondTracking' ? 'tracking' : 'inventory');
+        const response = mode === 'tracking'
+          ? await requireOk(server('webDiamondsTracking', {}, state.token))
+          : await requireOk(server('webDiamondsInStock', {}, state.token));
+        const data = response.data || {};
+        const rows = data.rows || [];
+        state.data.diamonds = { mode, rows };
+        setContent(`
+          <div class="grid compact">
+            ${metric(mode === 'tracking' ? 'Tracking Rows' : 'In Stock', data.count || rows.length)}
+          </div>
+          <div class="split wide-main content">
+            <div>
+              <div class="panel" style="margin-bottom:16px">
+                <div class="eyebrow">${mode === 'tracking' ? 'Diamond Tracking' : 'Diamond Inventory'}</div>
+                <h3>${escapeHtml(mode === 'tracking' ? 'Shipments, ETAs, and returns' : 'In-stock stones')}</h3>
+              </div>
+              ${stoneTable(rows, mode)}
+            </div>
+            <div id="diamond-detail" class="panel">${emptyPanel('Select a diamond')}</div>
+          </div>`);
+        document.querySelectorAll('[data-stone-index]').forEach(button => {
+          button.addEventListener('click', () => showStoneDetail(Number(button.dataset.stoneIndex || 0)));
+        });
+      }
+
+      function stoneTable(rows, mode) {
+        if (!rows.length) return `<div class="empty"><h3>No stones</h3></div>`;
+        return `<div class="list-stack">
+          ${rows.slice(0, 100).map((row, index) => {
+            const issue = diamondIssue(row, mode);
+            return `<button class="stone-card ${issue ? 'issue' : ''}" type="button" data-stone-index="${index}">
+              <div class="card-top">
+                <div class="card-main">
+                  <div class="card-title">${escapeHtml(diamondTitle(row))}</div>
+                  <div class="meta">${escapeHtml([row.Vendor, row.Lab, row.CertNo ? 'Cert ' + row.CertNo : ''].filter(Boolean).join(' | '))}</div>
+                  <div class="meta">${escapeHtml([row.Measurements, row.Ratio ? 'L/W ' + row.Ratio : ''].filter(Boolean).join(' | '))}</div>
+                </div>
+                <div class="card-side">
+                  <span class="badge">${escapeHtml(issue || row.StoneStatus || row.OrderStatus || 'Tracking')}</span>
+                  <div class="meta number">${escapeHtml(fmtDate(row.TrackingETA || row.ReturnDueDate))}</div>
+                </div>
+              </div>
+              <div class="meta">${escapeHtml([row.StoneStatus, row.OrderStatus, row.Decision, row.ReturnStatus].filter(Boolean).join(' | '))}</div>
+              <div class="meta">${escapeHtml([row.CustomerName ? 'Customer ' + row.CustomerName : '', row.AssignedRootApptID || row.RootApptID || '', row.Holder ? 'Holder ' + row.Holder : ''].filter(Boolean).join(' | '))}</div>
+            </button>`;
+          }).join('')}
+        </div>`;
+      }
+
+      function showStoneDetail(index) {
+        const row = state.data.diamonds && state.data.diamonds.rows && state.data.diamonds.rows[index];
+        if (!row) return;
+        const trackingUrl = safeHref(row.TrackingUrl);
+        document.getElementById('diamond-detail').innerHTML = `
+          <div class="eyebrow">${escapeHtml(row.StoneStatus || row.OrderStatus || 'Diamond')}</div>
+          <h3>${escapeHtml(diamondTitle(row))}</h3>
+          <div class="rule"></div>
+          <div class="detail-section">
+            <div class="detail-list">
+              ${detailRow('Vendor', row.Vendor)}
+              ${detailRow('Lab / Cert', [row.Lab, row.CertNo].filter(Boolean).join(' '))}
+              ${detailRow('Specs', [row.Shape, row.Carat ? row.Carat + 'ct' : '', row.Color, row.Clarity].filter(Boolean).join(' | '))}
+              ${detailRow('Cut', [row.Cut, row.Polish, row.Symmetry].filter(Boolean).join(' | '))}
+              ${detailRow('Fluorescence', row.Fluorescence)}
+              ${detailRow('Measurements', row.Measurements)}
+              ${detailRow('Ratio', row.Ratio)}
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="eyebrow">Status</div>
+            <div class="detail-list" style="margin-top:12px">
+              ${detailRow('Stone', row.StoneStatus)}
+              ${detailRow('Order', row.OrderStatus)}
+              ${detailRow('Decision', row.Decision)}
+              ${detailRow('Return', row.ReturnStatus)}
+              ${detailRow('Return Due', fmtDate(row.ReturnDueDate))}
+            </div>
+          </div>
+          <div class="detail-section">
+            <div class="eyebrow">Assignment and Tracking</div>
+            <div class="detail-list" style="margin-top:12px">
+              ${detailRow('Root', row.AssignedRootApptID || row.RootApptID)}
+              ${detailRow('Customer', row.CustomerName)}
+              ${detailRow('Advisor', row.ClientAdvisorEmail)}
+              ${detailRow('JOC', row.JOCOwnerEmail)}
+              ${detailRow('ETA', fmtDate(row.TrackingETA))}
+              ${detailRow('Carrier', [row.Carrier, row.TrackingNumber].filter(Boolean).join(' | '))}
+            </div>
+            ${trackingUrl ? `<div class="actions"><a class="btn small" href="${escapeAttr(trackingUrl)}" target="_blank" rel="noopener">Open Tracking</a></div>` : ''}
+          </div>
+          ${row.ReturnNotes || row.Notes ? `<div class="detail-section"><div class="eyebrow">Notes</div><div class="template-box" style="margin-top:12px">${escapeHtml([row.ReturnNotes, row.Notes].filter(Boolean).join('\\n\\n'))}</div></div>` : ''}`;
+      }
+
+      async function loadBulkReturns() {
+        const response = await requireOk(server('webDiamondsBulkReturnCandidates', {}, state.token));
+        const rows = Array.isArray(response.data) ? response.data : response.data && response.data.rows || [];
+        state.data.bulkReturns = rows;
+        setContent(`
+          <div class="grid compact">
+            ${metric('Candidates', rows.length)}
+          </div>
+          <div class="split wide-main content">
+            <div>
+              <div class="form-card" style="margin-bottom:16px">
+                <div class="eyebrow">Bulk Return Shipment</div>
+                <div class="toolbar" style="margin-top:12px;margin-bottom:0">
+                  <label><span>Notes</span><input id="bulk-return-notes" value="${escapeAttr(state.data.bulkReturnNotes || '')}"></label>
+                  <button class="btn primary" id="bulk-return-mark" type="button">Mark Selected In Progress</button>
+                </div>
+              </div>
+              ${bulkReturnTable(rows)}
+            </div>
+            <div id="bulk-return-detail" class="panel">${emptyPanel('Select return candidates')}</div>
+          </div>`);
+        document.getElementById('bulk-return-mark').addEventListener('click', markBulkReturns);
+        document.querySelectorAll('[data-return-index]').forEach(button => {
+          button.addEventListener('click', event => {
+            if (event.target && event.target.matches('input')) return;
+            showBulkReturnDetail(Number(button.dataset.returnIndex || 0));
+          });
+        });
+        document.querySelectorAll('[data-return-stone]').forEach(input => {
+          input.addEventListener('change', updateBulkReturnDetail);
+        });
+      }
+
+      function bulkReturnTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No return candidates</h3><p class="muted">There are no diamonds waiting for bulk return.</p></div>`;
+        return `<div class="list-stack">
+          ${rows.slice(0, 100).map((row, index) => {
+            const stoneId = row.CertNo || row.StoneID || row.StoneId || '';
+            const issue = isOverdue(row.ReturnDueDate) ? 'Return overdue' : (!row.ReturnDueDate ? 'No return date' : '');
+            return `<label class="return-card ${issue ? 'issue' : ''}" data-return-index="${index}">
+              <div class="card-top">
+                <div class="card-main">
+                  <div class="card-title"><input type="checkbox" data-return-stone="${escapeAttr(stoneId)}"> ${escapeHtml(diamondTitle(row))}</div>
+                  <div class="meta">${escapeHtml([row.Vendor, row.Lab, row.CertNo ? 'Cert ' + row.CertNo : ''].filter(Boolean).join(' | '))}</div>
+                  <div class="meta">${escapeHtml([row.CustomerName, row.AssignedRootApptID || row.RootApptID].filter(Boolean).join(' | '))}</div>
+                </div>
+                <div class="card-side">
+                  <span class="badge">${escapeHtml(issue || row.ReturnStatus || row.StoneStatus || 'Return')}</span>
+                  <div class="meta number">${escapeHtml(fmtDate(row.ReturnDueDate || row.TrackingETA))}</div>
+                </div>
+              </div>
+              ${row.ReturnNotes || row.Notes ? `<div class="meta">${escapeHtml(row.ReturnNotes || row.Notes)}</div>` : ''}
+            </label>`;
+          }).join('')}
+        </div>`;
+      }
+
+      function updateBulkReturnDetail() {
+        const selected = selectedBulkReturnRows();
+        const detail = document.getElementById('bulk-return-detail');
+        if (!detail) return;
+        detail.innerHTML = `
+          <div class="eyebrow">Selected Returns</div>
+          <h3>${escapeHtml(selected.length)} selected</h3>
+          <div class="rule"></div>
+          ${selected.length ? `<div class="mini-table">${selected.map(row => `<div class="mini-row"><div><strong>${escapeHtml(diamondTitle(row))}</strong><div class="meta">${escapeHtml([row.Vendor, row.CertNo ? 'Cert ' + row.CertNo : '', row.ReturnDueDate ? 'Due ' + fmtDate(row.ReturnDueDate) : 'No return date'].filter(Boolean).join(' | '))}</div></div><span class="badge">${escapeHtml(row.ReturnStatus || row.StoneStatus || '')}</span></div>`).join('')}</div>` : '<div class="empty">Select rows from the list to prepare one return batch.</div>'}`;
+      }
+
+      function showBulkReturnDetail(index) {
+        const row = state.data.bulkReturns && state.data.bulkReturns[index];
+        if (!row) return;
+        const detail = document.getElementById('bulk-return-detail');
+        if (!detail) return;
+        detail.innerHTML = `
+          <div class="eyebrow">${escapeHtml(row.ReturnStatus || 'Return Candidate')}</div>
+          <h3>${escapeHtml(diamondTitle(row))}</h3>
+          <div class="rule"></div>
+          <div class="detail-list">
+            ${detailRow('Cert', row.CertNo || row.StoneID)}
+            ${detailRow('Vendor', row.Vendor)}
+            ${detailRow('Status', [row.StoneStatus, row.OrderStatus, row.Decision, row.ReturnStatus].filter(Boolean).join(' | '))}
+            ${detailRow('Return Due', fmtDate(row.ReturnDueDate))}
+            ${detailRow('Root', row.AssignedRootApptID || row.RootApptID)}
+            ${detailRow('Customer', row.CustomerName)}
+            ${detailRow('Notes', row.ReturnNotes || row.Notes)}
+          </div>`;
+      }
+
+      function selectedBulkReturnRows() {
+        const selected = {};
+        document.querySelectorAll('[data-return-stone]:checked').forEach(input => {
+          selected[String(input.dataset.returnStone)] = true;
+        });
+        return (state.data.bulkReturns || []).filter(row => selected[String(row.CertNo || row.StoneID || row.StoneId || '')]);
+      }
+
+      async function markBulkReturns() {
+        const stoneIds = selectedBulkReturnRows().map(row => row.CertNo || row.StoneID || row.StoneId || '').filter(Boolean);
+        if (!stoneIds.length) {
+          setStatus('Select at least one stone');
+          return;
+        }
+        state.data.bulkReturnNotes = document.getElementById('bulk-return-notes').value;
+        setStatus('Updating returns');
+        await requireOk(server('webDiamondsBulkMarkReturnInProgress', stoneIds, state.data.bulkReturnNotes, null, state.token));
+        await loadBulkReturns();
+      }
+
+      function renderPayments() {
+        const root = state.data.paymentRoot || '';
+        setContent(`
+          <div class="form-card">
+            <div class="eyebrow">Payments</div>
+            <h3>Load payment context</h3>
+            <div class="toolbar" style="margin-top:12px;margin-bottom:0">
+              <label><span>Root Appointment ID</span><input id="payment-root" value="${escapeAttr(root)}"></label>
+              <button class="btn" id="payment-load" type="button">Load History</button>
+              <button class="btn" id="payment-init" type="button">Initialize</button>
+            </div>
+          </div>
+          <div id="payment-init-content"></div>
+          <div id="payment-content" class="content">${emptyPanel('Enter a root appointment ID')}</div>`);
+        document.getElementById('payment-load').addEventListener('click', loadPaymentHistory);
+        document.getElementById('payment-init').addEventListener('click', loadPaymentInit);
+      }
+
+      async function loadPaymentInit() {
+        const root = document.getElementById('payment-root').value;
+        state.data.paymentRoot = root;
+        setStatus('Loading payment setup');
+        const response = await requireOk(server('webPaymentInit', root, state.token));
+        const data = response.data || {};
+        document.getElementById('payment-init-content').innerHTML = `
+          <div class="grid">
+            ${metric('Brand', data.brand || '')}
+            ${metric('Tax Mode', data.taxMode || '')}
+            ${metric('Balance', money(data.summary && data.summary.balance || 0))}
+            ${metric('Eligible Docs', (data.eligibleDocTypes || []).filter(row => row.eligible).length)}
+          </div>
+          <div class="content panel"><div class="eyebrow">Document Types</div><div class="rule"></div>${paymentDocTypeTable(data.eligibleDocTypes || [])}</div>`;
+        setStatus('Ready' + latestTimingLabel());
+      }
+
+      async function loadPaymentHistory() {
+        const root = document.getElementById('payment-root').value;
+        state.data.paymentRoot = root;
+        setStatus('Loading payment history');
+        const response = await requireOk(server('webPaymentHistory', root, state.token));
+        const rows = response.data || [];
+        document.getElementById('payment-content').innerHTML = paymentTable(rows);
+        bindPaymentActions();
+        setStatus('Ready' + latestTimingLabel());
+      }
+
+      function paymentTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No payments</h3></div>`;
+        return `<table><thead><tr><th>Doc</th><th>Type</th><th>Status</th><th>Total</th><th>Paid</th><th>PDF</th><th>Actions</th></tr></thead><tbody>
+          ${rows.map(row => `<tr>
+            <td>${escapeHtml(row.DocNumber || row.PaymentId || '')}</td>
+            <td>${escapeHtml(row.DocType || '')}</td>
+            <td>${escapeHtml(row.Status || '')}</td>
+            <td class="number">${escapeHtml(money(row.InvoiceTotal || row.Amount))}</td>
+            <td class="number">${escapeHtml(money(row.AmountReceived))}</td>
+            <td>${safeHref(row.PDFURL) ? `<a href="${escapeAttr(safeHref(row.PDFURL))}" target="_blank" rel="noopener">Open</a>` : ''}</td>
+            <td>
+              <button class="row-link" data-payment-action="links" data-payment="${escapeAttr(row.PaymentId || row.PaymentID || '')}">Links</button>
+              <button class="row-link" data-payment-action="export" data-payment="${escapeAttr(row.PaymentId || row.PaymentID || '')}">Export</button>
+              <button class="row-link" data-payment-action="regen" data-payment="${escapeAttr(row.PaymentId || row.PaymentID || '')}" data-version="${escapeAttr(row.Version)}">Regenerate</button>
+              <button class="row-link" data-payment-action="void" data-payment="${escapeAttr(row.PaymentId || row.PaymentID || '')}" data-version="${escapeAttr(row.Version)}">Void</button>
+            </td>
+          </tr>`).join('')}
+        </tbody></table>`;
+      }
+
+      function paymentDocTypeTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No payment setup</h3></div>`;
+        return `<table><thead><tr><th>Type</th><th>Status</th><th>Next Doc</th><th>Reason</th></tr></thead><tbody>${rows.map(row => `<tr><td>${escapeHtml(row.label || row.docType || '')}</td><td>${row.eligible ? 'Eligible' : 'Blocked'}</td><td>${escapeHtml(row.nextDocNumber || '')}</td><td>${escapeHtml(row.reason || '')}</td></tr>`).join('')}</tbody></table>`;
+      }
+
+      function bindPaymentActions() {
+        document.querySelectorAll('[data-payment-action]').forEach(button => {
+          button.addEventListener('click', () => runPaymentAction(button.dataset.paymentAction, button.dataset.payment, button.dataset.version));
+        });
+      }
+
+      async function runPaymentAction(action, paymentId, version) {
+        if (!paymentId) return;
+        setStatus('Updating payment');
+        if (action === 'links') {
+          const response = await requireOk(server('webPaymentDocLinks', paymentId, state.token));
+          const data = response.data || {};
+          setStatus((safeHref(data.docUrl) || safeHref(data.pdfUrl) || 'Links loaded') + latestTimingLabel());
+          return;
+        }
+        if (action === 'export') await requireOk(server('webPaymentExportPdf', paymentId, state.token));
+        if (action === 'regen') await requireOk(server('webPaymentRegenerateDoc', paymentId, version ? Number(version) : null, state.token));
+        if (action === 'void') await requireOk(server('webPaymentAdminVoid', paymentId, 'Voided from dashboard', version ? Number(version) : null, state.token));
+        await loadPaymentHistory();
+      }
+
+      async function loadAdmin() {
+        const [health, users] = await Promise.all([
+          requireOk(server('webAdminDashboard', state.token)),
+          requireOk(server('webUsersList', state.token))
+        ]);
+        const totals = health.data && health.data.totals || {};
+        const taskCounts = health.data && health.data.taskCounts || {};
+        setContent(`
+          <div class="grid compact">
+            ${metric('Roots', totals.roots || 0)}
+            ${metric('Active Roots', totals.activeRoots || 0)}
+            ${metric('Open Tasks', totals.openTasks || 0)}
+            ${metric('Cleanup', totals.openCleanupCases || 0)}
+            ${metric('All Tasks', totals.tasks || 0)}
+            ${metric('Users', (users.data || []).length)}
+          </div>
+          <div class="split content">
+            <div class="panel">
+              <div class="eyebrow">Pipeline By Stage</div>
+              <h3>Current customer status</h3>
+              <div class="rule"></div>
+              ${pipelineCards(health.data && health.data.pipelineByStage || {})}
+            </div>
+            <div class="panel">
+              <div class="eyebrow">Task Counts</div>
+              <h3>Queue state</h3>
+              <div class="rule"></div>
+              ${pipelineCards(taskCounts)}
+            </div>
+          </div>
+          <div class="content panel">
+            <div class="eyebrow">Active Users</div>
+            <h3>Workflow access</h3>
+            <div class="rule"></div>
+            ${userTable(users.data || [])}
+          </div>`);
+      }
+
+      async function loadAdminReview() {
+        const taskView = state.data.adminReviewView || { view: 'admin', includeCompleted: false };
+        const response = await requireOk(server('webTasksList', taskView, state.token));
+        const rows = response.data && response.data.tasks || [];
+        setContent(`
+          <div class="form-card">
+            <div class="eyebrow">Assignment Controls</div>
+            <div class="toolbar" style="margin-top:12px;margin-bottom:0">
+              <label><span>Owner Email</span><input id="admin-owner-email" value="${escapeAttr(state.data.adminOwnerEmail || '')}"></label>
+              <label><span>Owner Role</span><input id="admin-owner-role" value="${escapeAttr(state.data.adminOwnerRole || '')}"></label>
+              <label><span>Block Reason</span><input id="admin-block-reason" value="${escapeAttr(state.data.adminBlockReason || '')}"></label>
+            </div>
+          </div>
+          ${adminReviewTable(rows)}`);
+        document.querySelectorAll('[data-admin-task-action]').forEach(button => {
+          button.addEventListener('click', () => runAdminTaskAction(button.dataset.adminTaskAction, button.dataset.task, button.dataset.version));
+        });
+      }
+
+      function adminReviewTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No admin review tasks</h3></div>`;
+        return `<div class="list-stack content">
+          ${rows.slice(0, 100).map(row => `<article class="task-card ${isOverdue(row.snoozedUntil || row.dueAt) ? 'overdue' : ''}">
+            <div class="card-top">
+              <div class="card-main">
+                <div class="card-title">${escapeHtml(taskTypeLabel(row.taskType))}</div>
+                <div class="meta">${escapeHtml(row.customer && row.customer.customerName || row.rootApptId || 'No customer')}</div>
+                <div class="meta">Owner: ${escapeHtml(row.ownerName || row.ownerEmail || row.ownerRole || 'Unassigned')}</div>
+              </div>
+              <div class="card-side">
+                ${brandChip(row.customer && row.customer.brand)}
+                <div class="meta number">${escapeHtml(fmtDate(row.snoozedUntil || row.dueAt))}</div>
+              </div>
+            </div>
+            <span class="badge">${escapeHtml(row.taskState || '')}</span>
+            <span class="badge">${escapeHtml(row.ownerRole || '')}</span>
+            ${row.blockReason ? `<div class="error">${escapeHtml(row.blockReason)}</div>` : ''}
+            <div class="actions">
+              <button class="btn small" data-admin-task-action="reassign" data-task="${escapeAttr(row.taskId)}" data-version="${escapeAttr(row.version)}">Reassign</button>
+              <button class="btn small" data-admin-task-action="block" data-task="${escapeAttr(row.taskId)}" data-version="${escapeAttr(row.version)}">Block</button>
+              <button class="btn small" data-admin-task-action="unblock" data-task="${escapeAttr(row.taskId)}" data-version="${escapeAttr(row.version)}">Unblock</button>
+            </div>
+          </article>`).join('')}
+        </div>`;
+      }
+
+      async function runAdminTaskAction(action, taskId, version) {
+        state.data.adminOwnerEmail = document.getElementById('admin-owner-email').value;
+        state.data.adminOwnerRole = document.getElementById('admin-owner-role').value;
+        state.data.adminBlockReason = document.getElementById('admin-block-reason').value;
+        setStatus('Saving admin update');
+        if (action === 'reassign') await requireOk(server('webAdminReassignTask', taskId, { email: state.data.adminOwnerEmail, role: state.data.adminOwnerRole }, Number(version), state.token));
+        if (action === 'block') await requireOk(server('webAdminBlockTask', taskId, state.data.adminBlockReason || 'Blocked from dashboard', Number(version), state.token));
+        if (action === 'unblock') await requireOk(server('webAdminUnblockTask', taskId, Number(version), state.token));
+        await loadAdminReview();
+      }
+
+      async function loadSchedules() {
+        const response = await requireOk(server('webSchedulesList', state.token));
+        const rows = response.data || [];
+        setContent(`
+          <div class="form-card">
+            <div class="eyebrow">Roster Schedule</div>
+            <h3>Save canonical schedule row</h3>
+            <div class="toolbar" style="margin-top:12px;margin-bottom:0">
+              <label><span>Email</span><input id="schedule-email" value="${escapeAttr(state.data.scheduleEmail || '')}"></label>
+              <label><span>Week Start</span><input id="schedule-week" type="date" value="${escapeAttr(state.data.scheduleWeek || '')}"></label>
+              <label><span>Role</span><input id="schedule-role" value="${escapeAttr(state.data.scheduleRole || '')}"></label>
+              <label><span>Monday</span><input id="schedule-monday" value="${escapeAttr(state.data.scheduleMonday || '')}"></label>
+              <label><span>Notes</span><input id="schedule-notes" value="${escapeAttr(state.data.scheduleNotes || '')}"></label>
+              <button class="btn primary" id="schedule-save" type="button">Save Row</button>
+            </div>
+          </div>
+          ${scheduleTable(rows)}`);
+        document.getElementById('schedule-save').addEventListener('click', saveScheduleRow);
+      }
+
+      function scheduleTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No schedules</h3></div>`;
+        return `<div class="list-stack content">${rows.slice(0, 80).map(row => `<article class="activity-card">
+          <div class="card-top">
+            <div class="card-main">
+              <div class="card-title">${escapeHtml(row.Email || 'Schedule Row')}</div>
+              <div class="meta">${escapeHtml([row.Role, fmtDate(row.WeekStart)].filter(Boolean).join(' | '))}</div>
+            </div>
+            <span class="badge">${escapeHtml(row.Active === false ? 'Inactive' : 'Active')}</span>
+          </div>
+          <div class="mini-table" style="margin-top:12px">
+            <div class="mini-row"><span class="meta">Mon</span><span>${escapeHtml(row.Monday || '')}</span></div>
+            <div class="mini-row"><span class="meta">Tue</span><span>${escapeHtml(row.Tuesday || '')}</span></div>
+            <div class="mini-row"><span class="meta">Wed</span><span>${escapeHtml(row.Wednesday || '')}</span></div>
+            <div class="mini-row"><span class="meta">Notes</span><span>${escapeHtml(row.Notes || '')}</span></div>
+          </div>
+        </article>`).join('')}</div>`;
+      }
+
+      async function saveScheduleRow() {
+        const row = {
+          Email: document.getElementById('schedule-email').value,
+          WeekStart: document.getElementById('schedule-week').value,
+          Role: document.getElementById('schedule-role').value,
+          Monday: document.getElementById('schedule-monday').value,
+          Notes: document.getElementById('schedule-notes').value,
+          Active: true
+        };
+        state.data.scheduleEmail = row.Email;
+        state.data.scheduleWeek = row.WeekStart;
+        state.data.scheduleRole = row.Role;
+        state.data.scheduleMonday = row.Monday;
+        state.data.scheduleNotes = row.Notes;
+        await requireOk(server('webSchedulesSave', [row], state.token));
+        await loadSchedules();
+      }
+
+      async function loadUsers() {
+        const response = await requireOk(server('webUsersList', state.token));
+        setContent(`
+          <div class="form-card">
+            <div class="eyebrow">Workflow Users</div>
+            <h3>Add or update a user</h3>
+            <div class="toolbar" style="margin-top:12px;margin-bottom:0">
+              <label><span>Name</span><input id="user-name" value="${escapeAttr(state.data.userName || '')}"></label>
+              <label><span>Email</span><input id="user-email" type="email" value="${escapeAttr(state.data.userEmail || '')}"></label>
+              <label><span>Password</span><input id="user-password" type="password" placeholder="Only needed for reset"></label>
+              <button class="btn primary" id="user-save" type="button">Save User</button>
+            </div>
+            <div class="check-grid">
+              ${ROLE_OPTIONS.map(role => `<label class="check-row"><input class="user-role-check" type="checkbox" value="${escapeAttr(role)}" ${rolesFromCsv(state.data.userRole || 'Read-Only Viewer').indexOf(role) !== -1 ? 'checked' : ''}><span>${escapeHtml(role)}</span></label>`).join('')}
+            </div>
+          </div>
+          ${userTable(response.data || [])}`);
+        document.getElementById('user-save').addEventListener('click', saveUser);
+      }
+
+      async function saveUser() {
+        const payload = {
+          Name: document.getElementById('user-name').value,
+          Email: document.getElementById('user-email').value,
+          RolesCsv: Array.from(document.querySelectorAll('.user-role-check:checked')).map(input => input.value).join(','),
+          Password: document.getElementById('user-password').value,
+          Active: true
+        };
+        state.data.userName = payload.Name;
+        state.data.userEmail = payload.Email;
+        state.data.userRole = payload.RolesCsv;
+        await requireOk(server('webUserUpsert', payload, state.token));
+        await loadUsers();
+      }
+
+      async function loadDiagnostics() {
+        const [drift, ops, triggers] = await Promise.all([
+          requireOk(server('webDiagnosticsDrift', state.token)),
+          requireOk(server('webDiagnosticsOpsLog', { limit: 25 }, state.token)),
+          requireOk(server('webDiagnosticsTriggerStatus', state.token))
+        ]);
+        const driftData = drift.data || drift;
+        const triggerData = triggers.data || triggers;
+        setContent(`
+          <div class="grid">
+            ${metric('Drift', driftData.ok === false ? 'ERR' : 'OK')}
+            ${metric('Schema', driftData.schema && driftData.schema.version || driftData.schemaVersion || '')}
+            ${metric('APIs', driftData.permissions && driftData.permissions.apiCount || driftData.apiCount || 0)}
+            ${metric('Errors', (driftData.errors || []).length || 0)}
+            ${metric('Triggers Missing', (triggerData.missing || []).length || 0)}
+            ${metric('Trigger Duplicates', (triggerData.duplicates || []).length || 0)}
+          </div>
+          <div class="actions">
+            <button class="btn" id="run-benchmarks">Run Benchmarks</button>
+          </div>
+          <div id="benchmark-output" class="content"></div>
+          <div class="content panel"><div class="eyebrow">Triggers</div><div class="rule"></div>${triggerTable(triggerData.installed || [])}</div>
+          <div class="content panel"><div class="eyebrow">Operations Log</div><div class="rule"></div>${opsTable(ops.data || [])}</div>`);
+        document.getElementById('run-benchmarks').addEventListener('click', runBenchmarks);
+      }
+
+      async function runBenchmarks() {
+        setStatus('Running benchmarks');
+        const response = await requireOk(server('webDiagnosticsBenchmarks', state.token));
+        const rows = response.metrics || response.data && response.data.metrics || [];
+        document.getElementById('benchmark-output').innerHTML = `<div class="panel">${benchmarkTable(rows)}</div>`;
+        setStatus('Ready');
+      }
+
+      function keyValueTable(object) {
+        const rows = Object.keys(object || {});
+        if (!rows.length) return `<div class="empty"><h3>No data</h3></div>`;
+        return `<table><tbody>${rows.map(key => `<tr><td>${escapeHtml(key)}</td><td class="number">${escapeHtml(object[key])}</td></tr>`).join('')}</tbody></table>`;
+      }
+
+      function userTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No active users</h3></div>`;
+        return `<div class="mini-table">${rows.map(row => {
+          const roles = Array.isArray(row.roles) ? row.roles : rolesFromCsv(row.RolesCsv || row.rolesCsv || '');
+          return `<div class="mini-row"><div><strong>${escapeHtml(row.Name || row.name || row.Email || row.email || '')}</strong><div class="meta">${escapeHtml(row.Email || row.email || '')}</div></div><div class="meta">${escapeHtml(roles.join(', '))}</div></div>`;
+        }).join('')}</div>`;
+      }
+
+      function opsTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No recent operations</h3></div>`;
+        return `<table><thead><tr><th>Time</th><th>Function</th><th>Result</th><th>Message</th></tr></thead><tbody>${rows.slice(0, 25).map(row => `<tr><td>${escapeHtml(fmtDate(row.Timestamp))}</td><td>${escapeHtml(row.FunctionName || '')}</td><td>${escapeHtml(row.Result || '')}</td><td>${escapeHtml(row.Message || '')}</td></tr>`).join('')}</tbody></table>`;
+      }
+
+      function benchmarkTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No metrics returned</h3></div>`;
+        return `<table><thead><tr><th>Metric</th><th>Result</th><th>Elapsed</th><th>Source</th></tr></thead><tbody>${rows.map(row => `<tr><td>${escapeHtml(row.name || '')}</td><td>${row.ok ? 'OK' : 'ERR'}</td><td class="number">${escapeHtml(row.elapsedMs || '')} ms</td><td>${escapeHtml(row.source || '')}</td></tr>`).join('')}</tbody></table>`;
+      }
+
+      function triggerTable(rows) {
+        if (!rows.length) return `<div class="empty"><h3>No installed triggers</h3></div>`;
+        return `<table><thead><tr><th>Handler</th><th>Event</th><th>Source</th><th>Managed</th></tr></thead><tbody>${rows.map(row => `<tr><td>${escapeHtml(row.handler || '')}</td><td>${escapeHtml(row.eventType || '')}</td><td>${escapeHtml(row.source || '')}</td><td>${row.launchManaged ? 'Yes' : 'No'}</td></tr>`).join('')}</tbody></table>`;
+      }
+
+      function pipelineCards(object) {
+        const rows = Object.keys(object || {});
+        if (!rows.length) return `<div class="empty"><h3>No data</h3></div>`;
+        return `<div class="list-stack">${rows.map(key => `<div class="activity-card"><div class="card-top"><div class="card-title">${escapeHtml(key)}</div><div class="stat-value number">${escapeHtml(object[key])}</div></div></div>`).join('')}</div>`;
+      }
+
+      function taskViewOptions(selected) {
+        const visible = state.visibleViews || [];
+        const options = [{ value: 'mine', label: 'Mine' }];
+        if (visible.indexOf('jocCoverage') !== -1) options.push({ value: 'coverage', label: 'Coverage' });
+        if (visible.indexOf('cleanup') !== -1) options.push({ value: 'cleanup', label: 'Cleanup' });
+        if (visible.indexOf('adminReview') !== -1 || visible.indexOf('admin') !== -1) options.push({ value: 'admin', label: 'All Open' });
+        return options.map(item => option(item.value, item.label, selected)).join('');
+      }
+
+      function uniqueValues(values) {
+        const seen = {};
+        return (values || []).map(value => String(value || '').trim()).filter(value => {
+          const key = value.toLowerCase();
+          if (!value || seen[key]) return false;
+          seen[key] = true;
+          return true;
+        });
+      }
+
+      function brandChip(brand) {
+        const code = brandCode(brand);
+        if (!code) return '';
+        return `<span class="brand-chip ${code === 'HP' ? 'hp' : 'vvs'}">${escapeHtml(code)}</span>`;
+      }
+
+      function brandCode(brand) {
+        let value = String(brand || '').toUpperCase();
+        if (value.normalize) value = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        value = value.replace(/[^A-Z0-9]+/g, ' ');
+        if (/\bVVS\b/.test(value) || value.indexOf('VVS JEWELRY') >= 0) return 'VVS';
+        if (/\bHP\b/.test(value) || value.indexOf('HPUSA') >= 0 || value.indexOf('HUNG PHAT') >= 0) return 'HP';
+        return '';
+      }
+
+      function taskTypeLabel(value) {
+        return String(value || '').replace(/_/g, ' ').replace(/\s+/g, ' ').trim() || 'Task';
+      }
+
+      function isOverdue(value) {
+        if (!value) return false;
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return false;
+        return date.getTime() < Date.now();
+      }
+
+      function diamondTitle(row) {
+        row = row || {};
+        return [row.Shape, row.Carat ? row.Carat + 'ct' : '', row.Color, row.Clarity, row.CertNo ? 'Cert ' + row.CertNo : ''].filter(Boolean).join(' | ') || row.StoneID || row.StoneId || 'Diamond';
+      }
+
+      function diamondIssue(row, mode) {
+        row = row || {};
+        if (mode === 'inventory' && isOverdue(row.ReturnDueDate)) return 'Return overdue';
+        if (mode === 'tracking' && !row.TrackingETA) return 'Missing ETA';
+        if (/delayed|cancel|concern|unavailable/i.test(String(row.TrackingStatus || ''))) return row.TrackingStatus;
+        if (!row.AssignedRootApptID && !row.RootApptID && mode === 'inventory') return 'Unassigned';
+        return '';
+      }
+
+      function customerLinksHtml(identity, links, order3d) {
+        identity = identity || {};
+        links = links || {};
+        order3d = order3d || {};
+        const linkRows = [
+          ['Customer Folder', identity.customerFolderUrl],
+          ['Appointment Folder', links.appointmentFolderUrl],
+          ['Odoo SO', order3d.OdooUrl || order3d.odooUrl],
+          ['3D Tracker', order3d.TrackerUrl || order3d.trackerUrl]
+        ];
+        (links.recordingUrls || []).forEach((url, index) => linkRows.push(['Recording ' + (index + 1), url]));
+        (links.transcriptUrls || []).forEach((url, index) => linkRows.push(['Transcript ' + (index + 1), url]));
+        (links.summaryUrls || []).forEach((url, index) => linkRows.push(['Summary ' + (index + 1), url]));
+        const safeLinks = linkRows.map(link => ({ label: link[0], href: safeHref(link[1]) })).filter(link => link.href);
+        return `
+          <div class="detail-section">
+            <div class="eyebrow">References</div>
+            ${safeLinks.length ? `<div class="link-list" style="margin-top:12px">${safeLinks.map(link => `<a class="link-tile" href="${escapeAttr(link.href)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>`).join('')}</div>` : '<div class="empty" style="margin-top:12px">No safe links available for this customer.</div>'}
+          </div>`;
+      }
+
+      function rolesFromCsv(value) {
+        if (Array.isArray(value)) return value;
+        return String(value || '').split(/[,\n;]/).map(role => role.trim()).filter(Boolean);
+      }
+
+      function monthLabel(monthKey) {
+        const date = new Date(String(monthKey || currentMonthKey()) + '-01T00:00:00');
+        if (Number.isNaN(date.getTime())) return String(monthKey || '');
+        return date.toLocaleDateString([], { month: 'long', year: 'numeric' });
+      }
+
+      function shiftMonthKey(monthKey, delta) {
+        const date = new Date(String(monthKey || currentMonthKey()) + '-01T00:00:00');
+        date.setMonth(date.getMonth() + Number(delta || 0));
+        return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+      }
+
+      function dateKey(date) {
+        return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+      }
+
+      function countCalendarEvents(days) {
+        return Object.keys(days || {}).reduce((sum, key) => sum + ((days[key] || []).length), 0);
+      }
+
+      function formatTime(value) {
+        const text = String(value || '').trim();
+        if (!text) return '';
+        const match = /^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i.exec(text);
+        if (!match) {
+          const date = new Date(text);
+          return Number.isNaN(date.getTime()) ? text : date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        }
+        let hour = Number(match[1]);
+        const minute = match[2];
+        const suffix = match[3];
+        if (suffix) return ((hour - 1) % 12 + 1) + ':' + minute + ' ' + suffix.toLowerCase();
+        const ampm = hour < 12 ? 'am' : 'pm';
+        hour = (hour % 12) || 12;
+        return hour + ':' + minute + ' ' + ampm;
+      }
+
+      function metric(label, value) {
+        return `<div class="metric"><span class="eyebrow">${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`;
+      }
+
+      function detailRow(label, value) {
+        return `<div class="detail-row"><span>${escapeHtml(label)}</span><span>${escapeHtml(value || '')}</span></div>`;
+      }
+
+      function emptyPanel(label) {
+        return `<div class="empty"><h3>${escapeHtml(label)}</h3></div>`;
+      }
+
+      function option(value, label, selected) {
+        return `<option value="${escapeAttr(value)}" ${value === selected ? 'selected' : ''}>${escapeHtml(label)}</option>`;
+      }
+
+      function setContent(html, isLoading) {
+        const element = document.getElementById('content');
+        if (!element) return;
+        element.innerHTML = html;
+        element.classList.toggle('loading', Boolean(isLoading));
+      }
+
+      function setStatus(text) {
+        state.status = text || '';
+        const element = document.getElementById('status');
+        if (element) element.textContent = state.status;
+      }
+
+      function setBusy(value, text) {
+        state.busy = Boolean(value);
+        if (text) setStatus(text);
+      }
+
+      async function requireOk(promise) {
+        const response = await promise;
+        if (!response || !response.ok) {
+          throw new Error(errorMessage(response));
+        }
+        return response;
+      }
+
+      function errorMessage(response) {
+        return response && response.error && response.error.message || response && response.reason || 'Request failed';
+      }
+
+      function effectiveViews(baseViews, permissions) {
+        let views = (baseViews || []).map(canonicalView);
+        if (hasPermission(permissions, 'Api.diamonds.bulkReturnCandidates')) views = views.concat(DIAMOND_VIEWS);
+        if (hasPermission(permissions, 'Api.admin.dashboard')) views = views.concat(ADMIN_VIEWS);
+        views = views.map(canonicalView);
+        return views.filter((view, index, all) => {
+          if (all.indexOf(view) !== index) return false;
+          const permission = VIEW_PERMISSIONS[view];
+          return !permission || hasPermission(permissions, permission);
+        });
+      }
+
+      function canonicalView(view) {
+        return VIEW_ALIASES[view] || view;
+      }
+
+      function hasPermission(permissions, apiName) {
+        if (!permissions) return false;
+        if (permissions[apiName] === true) return true;
+        if (Array.isArray(permissions)) return permissions.indexOf(apiName) !== -1;
+        return Boolean(permissions[apiName]);
+      }
+
+      function recordTiming(name, started, response, error) {
+        const elapsedMs = Math.round(performance.now() - started);
+        state.clientTimings.unshift({
+          name,
+          elapsedMs,
+          ok: !error && (!response || response.ok !== false),
+          serverMs: response && response.ageMs
+        });
+        state.clientTimings = state.clientTimings.slice(0, 20);
+        if (name !== 'webDiagnosticsLogClientTiming' && (name === 'webBootstrap' || name === 'webLogin' || name === 'webDiagnosticsBenchmarks')) {
+          sendClientTiming(name, elapsedMs, response, error);
+        }
+      }
+
+      function latestTimingLabel() {
+        const timing = state.clientTimings[0];
+        if (!timing) return '';
+        return ' | ' + timing.name + ' ' + timing.elapsedMs + ' ms';
+      }
+
+      function sendClientTiming(name, elapsedMs, response, error) {
+        if (!state.token || !window.google || !google.script || !google.script.run) return;
+        const payload = {
+          view: state.view,
+          route: name,
+          metrics: {
+            elapsedMs,
+            serverMs: response && response.ageMs || null,
+            ok: !error && (!response || response.ok !== false)
+          },
+          userAgent: navigator.userAgent || ''
+        };
+        google.script.run.webDiagnosticsLogClientTiming(payload, state.token);
+      }
+
+      function titleForView(view) {
+        return {
+          tasks: 'Work Queue',
+          myQueue: 'Work Queue',
+          coverage: 'JOC Coverage',
+          jocCoverage: 'JOC Coverage',
+          cleanup: 'Cleanup Queue',
+          customers: 'Customer Records',
+          customerSearch: 'Customer Records',
+          customerPipeline: 'Customer Pipeline',
+          calendar: 'Appointment Calendar',
+          diamonds: 'Diamond Operations',
+          diamondInventory: 'Diamond Inventory',
+          diamondTracking: 'Diamond Tracking',
+          bulkReturns: 'Bulk Diamond Returns',
+          payments: 'Payment History',
+          admin: 'Administrative Health',
+          adminReview: 'Admin Review',
+          schedules: 'Schedules',
+          users: 'Manage Users',
+          manageUsers: 'Manage Users',
+          diagnostics: 'Diagnostics'
+        }[view] || titleCase(view);
+      }
+
+      function titleCase(value) {
+        return String(value || '').replace(/(^|\\s)\\S/g, match => match.toUpperCase());
+      }
+
+      function currentMonthKey() {
+        const today = new Date();
+        return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+      }
+
+      function fmtDate(value) {
+        if (!value) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value);
+        return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      }
+
+      function money(value) {
+        const number = Number(value || 0);
+        return '$' + number.toFixed(2);
+      }
+
+      function paymentLine(finance) {
+        if (!finance) return '';
+        if (finance.available === false) return finance.reason || 'Unavailable';
+        return 'Balance ' + money(finance.balance || 0);
+      }
+
+      function escapeHtml(value) {
+        return String(value === undefined || value === null ? '' : value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+      }
+
+      function escapeAttr(value) {
+        return escapeHtml(value);
+      }
+
+      function safeHref(value) {
+        const url = String(value || '').trim();
+        if (!url) return '';
+        try {
+          const parsed = new URL(url, window.location.href);
+          if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            return parsed.href;
+          }
+        } catch (error) {
+          return '';
+        }
+        return '';
+      }
+    </script>
   </body>
 </html>
