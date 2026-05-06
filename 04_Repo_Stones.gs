@@ -54,6 +54,14 @@ const Stones = Object.freeze({
       });
     });
   },
+  markNotApproved: function(certNos, fields) {
+    return stonesBulkUpdate_(certNos, function() {
+      return mergeObjects_(stonesNormalizeInput_(fields || {}), {
+        OrderStatus: 'Not Approved',
+        StoneStatus: 'In Stock',
+      });
+    });
+  },
   updateTracking: function(certNos, fields) {
     var normalized = stonesNormalizeInput_(fields || {});
     return stonesBulkUpdate_(certNos, function() {
@@ -299,24 +307,40 @@ function stonesPreviewLoupe360Sync_(fileId, sourceRows) {
   var seen = {};
   var changes = [];
   var skipped = 0;
+  var skippedRows = [];
+  var matched = 0;
   var conflicts = [];
   rows.forEach(function(sourceRow, index) {
     var normalized = stonesNormalizeInput_(sourceRow);
     var certNo = stonesCertNo_(normalized.CertNo || sourceRow.StoneID || sourceRow.stoneId);
     if (!certNo) {
       skipped += 1;
+      skippedRows.push({ row: index + 1, reason: 'missing_cert' });
       return;
     }
     if (seen[certNo]) {
-      conflicts.push({ certNo: certNo, row: index + 1, reason: 'duplicate_cert' });
+      var duplicate = { certNo: certNo, row: index + 1, reason: 'duplicate_cert' };
+      conflicts.push(duplicate);
+      skippedRows.push(duplicate);
       skipped += 1;
       return;
     }
     seen[certNo] = true;
     normalized.CertNo = certNo;
     var existing = existingByCert[certNo];
+    if (existing) {
+      matched += 1;
+    }
     if (existing && stonesSyncWouldConflict_(existing, normalized)) {
-      conflicts.push({ certNo: certNo, row: index + 1, reason: 'status_conflict' });
+      var conflict = {
+        certNo: certNo,
+        row: index + 1,
+        reason: 'status_conflict',
+        existingStatus: existing.OrderStatus || '',
+        incomingStatus: normalized.OrderStatus || '',
+      };
+      conflicts.push(conflict);
+      skippedRows.push(conflict);
       skipped += 1;
       return;
     }
@@ -324,6 +348,7 @@ function stonesPreviewLoupe360Sync_(fileId, sourceRows) {
       action: existing ? 'update' : 'append',
       certNo: certNo,
       fields: normalized,
+      diffs: stonesBuildDiffs_(existing, normalized),
     });
   });
   var syncId = repoGeneratedId_('SyncID');
@@ -331,10 +356,11 @@ function stonesPreviewLoupe360Sync_(fileId, sourceRows) {
     syncId: syncId,
     fileId: fileId || '',
     sourceRows: rows.length,
-    matched: changes.filter(function(change) { return change.action === 'update'; }).length,
+    matched: matched,
     willUpdate: changes.filter(function(change) { return change.action === 'update'; }).length,
     willAppend: changes.filter(function(change) { return change.action === 'append'; }).length,
     skipped: skipped,
+    skippedRows: skippedRows,
     conflicts: conflicts,
     changes: changes,
   };
@@ -368,15 +394,18 @@ function stonesApplyLoupe360Sync_(syncIdOrFileId, plan) {
   var results = stonesToArray_(effectivePlan.changes).map(function(change) {
     return stonesUpsert_(change.certNo || change.CertNo, change.fields || change, null);
   });
-  var appended = results.filter(function(result) {
-    return result.ok && result.version === 1;
+  var appended = stonesToArray_(effectivePlan.changes).filter(function(change) {
+    return change.action === 'append';
+  }).length;
+  var updated = stonesToArray_(effectivePlan.changes).filter(function(change) {
+    return change.action === 'update';
   }).length;
   var sync = Stones.appendSync({
     SyncID: effectivePlan.syncId || repoGeneratedId_('SyncID'),
     FileID: effectivePlan.fileId || syncIdOrFileId || '',
     SourceRows: Number(effectivePlan.sourceRows || 0),
     Matched: Number(effectivePlan.matched || effectivePlan.willUpdate || 0),
-    Updated: Math.max(results.length - appended, 0),
+    Updated: updated,
     Appended: appended,
     Skipped: Number(effectivePlan.skipped || 0),
     ConflictsJson: effectivePlan.conflicts || [],
@@ -395,6 +424,34 @@ function stonesSyncWouldConflict_(existing, incoming) {
     return false;
   }
   return ['Delivered', 'Sold', 'Returned'].indexOf(existingStatus) !== -1 && ['On the Way', 'Proposing'].indexOf(incomingStatus) !== -1;
+}
+
+function stonesBuildDiffs_(existing, incoming) {
+  if (!existing) {
+    return Object.keys(incoming || {}).filter(function(field) {
+      return incoming[field] !== undefined && incoming[field] !== '';
+    }).map(function(field) {
+      return {
+        field: field,
+        before: '',
+        after: incoming[field],
+      };
+    });
+  }
+  var diffs = [];
+  Object.keys(incoming || {}).forEach(function(field) {
+    if (field === 'CertNo') {
+      return;
+    }
+    if (repoComparable_(existing[field]) !== repoComparable_(incoming[field])) {
+      diffs.push({
+        field: field,
+        before: existing[field] === undefined ? '' : existing[field],
+        after: incoming[field],
+      });
+    }
+  });
+  return diffs;
 }
 
 function stonesMutationResponse_(data, results) {

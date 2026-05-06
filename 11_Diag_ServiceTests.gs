@@ -206,30 +206,114 @@ function serviceTestsDiamonds_(suite) {
   var ctx = suite.ctx;
   serviceTestsSeedCustomerBundle_(suite);
   serviceTestCall_(suite, 'DiamondService proposal/order/delivery/return/decisions flows update stones', function() {
+    var selectedCert = 'diamond_selected_' + ctx.suffix;
+    var returnCert = 'diamond_return_' + ctx.suffix;
+    var rejectedCert = 'diamond_rejected_' + ctx.suffix;
     var proposal = DiamondService.submitProposal(ctx.rootId, {
-      stones: [{ StoneID: 'diamond_phase3_' + ctx.suffix, Shape: 'Oval' }],
+      stones: [
+        { CertNo: selectedCert, Shape: 'Oval' },
+        { CertNo: returnCert, Shape: 'Radiant' },
+        { CertNo: rejectedCert, Shape: 'Round' },
+      ],
       LookingForSummary: 'Phase 3 diamond proposal',
     });
-    var order = DiamondService.submitOrderApproval(['diamond_phase3_' + ctx.suffix]);
-    var delivery = DiamondService.submitConfirmDelivery(['diamond_phase3_' + ctx.suffix]);
-    var returns = DiamondService.bulkMarkReturnInProgress(['diamond_phase3_' + ctx.suffix]);
+    var order = DiamondService.submitOrderApproval([selectedCert, returnCert], {
+      rejectedStoneIds: [rejectedCert],
+    });
+    var tracking = Stones.updateTracking([selectedCert, returnCert], {
+      TrackingStatus: 'Arrived',
+      TrackingETA: new Date(),
+    });
+    var delivery = DiamondService.submitConfirmDelivery([selectedCert, returnCert]);
     var decisions = DiamondService.submitDecisions(ctx.rootId, [{
-      StoneID: 'diamond_phase3_' + ctx.suffix,
+      CertNo: selectedCert,
       Decision: 'Selected',
+    }, {
+      CertNo: returnCert,
+      Decision: 'Return',
     }]);
+    var returns = DiamondService.bulkMarkReturnInProgress([returnCert], 'Phase 4 return shipment');
     return {
-      ok: proposal.ok && order.ok && delivery.ok && returns.ok && decisions.ok,
+      ok: proposal.ok && order.ok && tracking.ok && delivery.ok && returns.ok && decisions.ok,
       proposal: proposal,
       order: order,
+      tracking: tracking,
       delivery: delivery,
-      returns: returns,
       decisions: decisions,
+      returns: returns,
       stones: Stones.getByRoot(ctx.rootId),
+      logs: repoFindMany_('TaskLog', { RootApptID: ctx.rootId }),
+      selectedCert: selectedCert,
+      returnCert: returnCert,
+      rejectedCert: rejectedCert,
     };
   }, function(result) {
-    return result.ok && result.stones.data.some(function(row) {
-      return row.CertNo === 'diamond_phase3_' + suite.ctx.suffix && row.Decision === 'Selected';
+    var byCert = {};
+    result.stones.data.forEach(function(row) {
+      byCert[row.CertNo] = row;
     });
+    var hasBulkReturnLog = result.logs.data.some(function(row) {
+      return row.EventType === TASK_TYPE.RETURN_DIAMONDS &&
+        row.MetadataJson &&
+        row.MetadataJson.bulkReturn === true &&
+        row.MetadataJson.certNo === result.returnCert;
+    });
+    return result.ok &&
+      byCert[result.selectedCert] &&
+      byCert[result.selectedCert].OrderStatus === 'Sold' &&
+      byCert[result.returnCert] &&
+      byCert[result.returnCert].ReturnStatus === 'Return In Progress' &&
+      byCert[result.rejectedCert] &&
+      byCert[result.rejectedCert].OrderStatus === 'Not Approved' &&
+      hasBulkReturnLog;
+  });
+
+  serviceTestCall_(suite, 'Loupe360 sync preview/apply captures diffs and audit row', function() {
+    var existingCert = 'loupe_existing_' + ctx.suffix;
+    var newCert = 'loupe_new_' + ctx.suffix;
+    Stones.assignInStock(existingCert, ctx.rootId, {
+      Shape: 'Oval',
+      Carat: 1.1,
+    });
+    var preview = Stones.previewLoupe360Sync('loupe_fixture_' + ctx.suffix, [{
+      CertNo: existingCert,
+      Shape: 'Emerald',
+      Carat: 1.1,
+      StoneStatus: 'In Stock',
+    }, {
+      CertNo: newCert,
+      Shape: 'Pear',
+      Carat: 2.2,
+      StoneStatus: 'In Stock',
+    }, {
+      CertNo: newCert,
+      Shape: 'Duplicate',
+      StoneStatus: 'In Stock',
+    }]);
+    var applied = Stones.applyLoupe360Sync(preview.data.syncId);
+    var syncRows = repoFindMany_('StonesSync', { SyncID: preview.data.syncId });
+    var updated = Stones.get(existingCert);
+    var appended = Stones.get(newCert);
+    return {
+      ok: preview.ok && applied.ok && syncRows.ok && updated.ok && appended.ok,
+      preview: preview,
+      applied: applied,
+      syncRows: syncRows,
+      updated: updated,
+      appended: appended,
+    };
+  }, function(result) {
+    return result.ok &&
+      result.preview.data.matched === 1 &&
+      result.preview.data.willUpdate === 1 &&
+      result.preview.data.willAppend === 1 &&
+      result.preview.data.skipped === 1 &&
+      result.preview.data.changes[0].diffs.length >= 1 &&
+      result.syncRows.data.length === 1 &&
+      result.syncRows.data[0].Updated === 1 &&
+      result.syncRows.data[0].Appended === 1 &&
+      result.updated.data.Shape === 'Emerald' &&
+      result.appended.data.Shape === 'Pear';
   });
 }
 
@@ -258,6 +342,30 @@ function serviceTestsTaskCompletion_(suite) {
     }, task.version);
   }, function(result) {
     return result.ok && result.data.task.TaskState === TASK_STATE.COMPLETED;
+  });
+
+  serviceTestCall_(suite, 'TaskCompletion appointment checklist marks artifact requirement', function() {
+    var task = Tasks.upsert(mergeObjects_(repoTestTask_(ctx), {
+      TaskID: 'task_checklist_' + ctx.suffix,
+      TaskType: TASK_TYPE.APPOINTMENT_DAY_CHECKLIST,
+    }));
+    var completed = TaskCompletion.complete(task.data.TaskID, {
+      artifactRequirements: ['recording'],
+    }, task.version);
+    var artifacts = Artifacts.getByRoot(ctx.rootId);
+    return {
+      ok: completed.ok && artifacts.ok,
+      completed: completed,
+      artifacts: artifacts,
+    };
+  }, function(result) {
+    return result.ok &&
+      result.completed.data.task.TaskState === TASK_STATE.COMPLETED &&
+      result.artifacts.data.some(function(row) {
+        return row.TaskID === 'task_checklist_' + suite.ctx.suffix &&
+          row.WorkflowStage === ARTIFACT_STAGE.REQUIRED &&
+          row.ArtifactType === 'recording';
+      });
   });
 }
 

@@ -41,6 +41,19 @@ function diamondSubmitOrderApproval_(stoneIds, fields) {
   if (!result.ok) {
     return result;
   }
+  var rejected = [];
+  var rejectedIds = (fields && (fields.rejectedStoneIds || fields.rejectedCertNos || fields.rejectedStoneIDs)) || [];
+  if (rejectedIds && rejectedIds.length) {
+    var rejectedResult = Stones.markNotApproved(rejectedIds, fields || {});
+    if (!rejectedResult.ok) {
+      return rejectedResult;
+    }
+    rejected = rejectedResult.data.updated || [];
+    return serviceOk_({
+      ordered: result.data,
+      rejected: rejected,
+    }, result.version, serviceCollectInvalidations_(result, rejectedResult));
+  }
   return serviceOk_(result.data, result.version, result.invalidated);
 }
 
@@ -84,5 +97,28 @@ function diamondBulkMarkReturnInProgress_(stoneIds, notes) {
   if (!result.ok) {
     return result;
   }
-  return serviceOk_(result.data, result.version, result.invalidated);
+  var logs = diamondAppendBulkReturnLogs_(result.data.updated || [], notes);
+  return serviceOk_(mergeObjects_(result.data, {
+    taskLogs: logs,
+  }), result.version, serviceCollectInvalidations_(result, logs.map(function(log) {
+    return log.invalidated || [];
+  })));
+}
+
+function diamondAppendBulkReturnLogs_(updates, notes) {
+  return (updates || []).map(function(update) {
+    var stone = update && update.data || {};
+    return Tasks.appendLog({
+      TaskID: 'bulk_return_' + (stone.CertNo || serviceGeneratedId_('stone')),
+      RootApptID: stone.AssignedRootApptID || '',
+      EventType: TASK_TYPE.RETURN_DIAMONDS,
+      OldState: '',
+      NewState: 'Return In Progress',
+      Notes: typeof notes === 'string' ? notes : notes && (notes.notes || notes.ReturnNotes) || '',
+      MetadataJson: {
+        bulkReturn: true,
+        certNo: stone.CertNo || '',
+      },
+    });
+  });
 }

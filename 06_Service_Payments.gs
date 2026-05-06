@@ -22,11 +22,22 @@ function paymentInit_(rootApptId) {
 }
 
 function paymentSubmit_(rootApptId, payload, version) {
+  var status = ClientStatus.get(rootApptId);
+  if (status.ok && payload.AdvanceSalesStage && version !== undefined && version !== null && Number(version) !== Number(status.version || 0)) {
+    return {
+      ok: false,
+      conflict: true,
+      reason: 'version_conflict',
+      latest: status.data,
+      version: status.version,
+      source: 'service',
+      ageMs: 0,
+    };
+  }
   var ledger = Ledger.append(rootApptId, payload);
   if (!ledger.ok) {
     return ledger;
   }
-  var status = ClientStatus.get(rootApptId);
   var statusUpdate = null;
   if (status.ok && payload.AdvanceSalesStage) {
     statusUpdate = ClientStatus.update(rootApptId, {

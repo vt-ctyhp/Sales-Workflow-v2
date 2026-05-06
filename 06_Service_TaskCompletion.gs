@@ -182,7 +182,22 @@ function taskCompletionUpdateWax_(task, payload) {
 function taskCompletionAppointmentChecklist_(task, payload) {
   var outcome = payload.outcome || payload.Outcome || APPOINTMENT_STATUS.COMPLETED;
   var result = Appointments.recordOutcome(task.APPT_ID, outcome);
-  return result.ok ? serviceOk_(result.data, result.version, result.invalidated) : result;
+  if (!result.ok) {
+    return result;
+  }
+  var requirements = taskCompletionArtifactRequirements_(task, payload);
+  var failedRequirement = requirements.filter(function(requirement) {
+    return !requirement.ok;
+  })[0];
+  if (failedRequirement) {
+    return failedRequirement;
+  }
+  return serviceOk_({
+    appointment: result.data,
+    requirements: requirements,
+  }, result.version, serviceCollectInvalidations_(result, requirements.map(function(requirement) {
+    return requirement.invalidated || [];
+  })));
 }
 
 function taskCompletionApproveRecap_(task, payload) {
@@ -215,7 +230,9 @@ function taskCompletionDiamond_(task, payload) {
     return DiamondService.submitProposal(task.RootApptID, payload, payload.diamondViewingVersion || null);
   }
   if (task.TaskType === TASK_TYPE.ORDER_DIAMONDS) {
-    return Stones.markOrdered(stoneIds, payload.fields || {});
+    return DiamondService.submitOrderApproval(stoneIds, mergeObjects_(payload.fields || {}, {
+      rejectedStoneIds: payload.rejectedStoneIds || payload.rejectedCertNos || payload.rejectedStoneIDs || [],
+    }));
   }
   if (task.TaskType === TASK_TYPE.TRACK_DIAMONDS) {
     var tracking = Stones.updateTracking(stoneIds, payload.fields || payload);
@@ -242,6 +259,25 @@ function taskCompletionDiamond_(task, payload) {
     taskType: task.TaskType,
     acknowledged: true,
   }, null, []);
+}
+
+function taskCompletionArtifactRequirements_(task, payload) {
+  var raw = payload.artifactRequirements || payload.requirements || [];
+  if (!raw) {
+    return [];
+  }
+  if (!Array.isArray(raw)) {
+    raw = [raw];
+  }
+  return raw.map(function(requirement) {
+    var fields = typeof requirement === 'string' ? {
+      ArtifactType: requirement,
+    } : requirement || {};
+    var type = fields.ArtifactType || fields.artifactType || fields.type || 'recording';
+    return Artifacts.markRequirement(task.RootApptID, task.APPT_ID, type, mergeObjects_(fields, {
+      TaskID: task.TaskID,
+    }));
+  });
 }
 
 function taskCompletionIsDiamondTask_(taskType) {

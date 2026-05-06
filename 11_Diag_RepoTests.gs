@@ -315,6 +315,18 @@ function repoTestsExerciseStones_(suite) {
     return result.ok && result.data.updated[0].data.OrderStatus === 'On the Way';
   });
 
+  repoTestCall_(suite, 'Stones.markNotApproved', 'marks rejected proposed stone not approved', function() {
+    Stones.upsertProposed(ctx.rootId, [{
+      CertNo: ctx.rejectedStoneCertNo,
+      Shape: 'Round',
+    }]);
+    return Stones.markNotApproved([ctx.rejectedStoneCertNo], {
+      Notes: 'Repo test rejection',
+    });
+  }, function(result) {
+    return result.ok && result.data.updated[0].data.OrderStatus === 'Not Approved';
+  });
+
   repoTestCall_(suite, 'Stones.updateTracking', 'updates tracking details', function() {
     return Stones.updateTracking([certNo], {
       TrackingETA: new Date(2026, 4, 2),
@@ -467,6 +479,17 @@ function repoTestsExerciseArtifacts_(suite) {
     return Artifacts.getByRoot(ctx.rootId);
   }, function(result) {
     return result.ok && repoTestHasRow_(result, 'ArtifactID', ctx.artifactId);
+  });
+
+  repoTestCall_(suite, 'Artifacts.markRequirement', 'marks artifact requirement placeholder', function() {
+    return Artifacts.markRequirement(ctx.rootId, ctx.apptId, 'recording', {
+      TaskID: ctx.taskId,
+      MetadataJson: {
+        repoTest: true,
+      },
+    });
+  }, function(result) {
+    return result.ok && result.data.WorkflowStage === ARTIFACT_STAGE.REQUIRED && result.data.MetadataJson.required === true;
   });
 
   var updated = repoTestCall_(suite, 'Artifacts.update', 'updates artifact with version check', function() {
@@ -736,6 +759,7 @@ function repoTestContext_() {
     stoneCertNo: 'cert_phase1_' + suffix,
     stockStoneCertNo: 'cert_stock_phase1_' + suffix,
     aliasStoneCertNo: 'cert_alias_phase1_' + suffix,
+    rejectedStoneCertNo: 'cert_rejected_phase1_' + suffix,
     syncStoneCertNo: 'cert_sync_phase1_' + suffix,
     syncId: 'sync_phase1_' + suffix,
     opsFunction: 'RepoTests.ops.' + suffix,
