@@ -1,6 +1,8 @@
 const RepoTests = Object.freeze({
   run: function() {
-    return repoTestsRun_();
+    var result = repoTestsRun_();
+    repoTestsLogResult_(result);
+    return result;
   },
 });
 
@@ -60,4 +62,19 @@ function repoTestAssert_(name, condition, detail) {
     name: name,
     detail: detail,
   };
+}
+
+function repoTestsLogResult_(result) {
+  var failures = result.failures.map(function(failure) {
+    return {
+      name: failure.name,
+      detail: failure.detail,
+    };
+  });
+  console.log(JSON.stringify({
+    ok: result.ok,
+    testCount: result.testCount,
+    failureCount: failures.length,
+    failures: failures,
+  }));
 }
