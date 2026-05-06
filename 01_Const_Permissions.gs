@@ -1,0 +1,63 @@
+const PERMISSIONS = Object.freeze({
+  'Api.auth.login': Object.freeze([]),
+  'Api.auth.logout': Object.freeze([]),
+  'Api.bootstrap.get': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT, ROLE.READ_ONLY_VIEWER]),
+
+  'Api.tasks.list': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.tasks.detail': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.tasks.complete': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.tasks.snooze': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.tasks.claim': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.tasks.acknowledge': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.tasks.logTemplateCopied': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+
+  'Api.customers.search': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.READ_ONLY_VIEWER]),
+  'Api.customers.getDetail': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.READ_ONLY_VIEWER]),
+  'Api.customers.updateStatus': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC]),
+  'Api.customers.updateDeadline': Object.freeze([ROLE.ADMIN, ROLE.JOC]),
+  'Api.customers.submit3DRevision': Object.freeze([ROLE.ADMIN, ROLE.JOC]),
+  'Api.customers.requestWax': Object.freeze([ROLE.ADMIN, ROLE.JOC]),
+  'Api.customers.startOrder': Object.freeze([ROLE.ADMIN, ROLE.JOC]),
+
+  'Api.calendar.getMonth': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.READ_ONLY_VIEWER]),
+  'Api.calendar.getAiBrief': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.READ_ONLY_VIEWER]),
+
+  'Api.admin.dashboard': Object.freeze([ROLE.ADMIN]),
+  'Api.admin.assignOwners': Object.freeze([ROLE.ADMIN]),
+  'Api.admin.reassignTask': Object.freeze([ROLE.ADMIN]),
+  'Api.admin.blockTask': Object.freeze([ROLE.ADMIN]),
+  'Api.admin.unblockTask': Object.freeze([ROLE.ADMIN]),
+
+  'Api.schedules.list': Object.freeze([ROLE.ADMIN]),
+  'Api.schedules.save': Object.freeze([ROLE.ADMIN]),
+  'Api.schedules.upsertChange': Object.freeze([ROLE.ADMIN]),
+  'Api.schedules.deleteChange': Object.freeze([ROLE.ADMIN]),
+  'Api.users.list': Object.freeze([ROLE.ADMIN]),
+  'Api.users.upsert': Object.freeze([ROLE.ADMIN]),
+
+  'Api.diamonds.inStock': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.diamonds.tracking': Object.freeze([ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.diamonds.bulkReturnCandidates': Object.freeze([ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.diamonds.bulkMarkReturnInProgress': Object.freeze([ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.diamonds.assignInStock': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC]),
+  'Api.diamonds.submitProposal': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR]),
+  'Api.diamonds.submitOrderApproval': Object.freeze([ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN]),
+  'Api.diamonds.submitConfirmDelivery': Object.freeze([ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN]),
+  'Api.diamonds.submitDecisions': Object.freeze([ROLE.ADMIN, ROLE.JOC]),
+  'Api.diamonds.previewLoupe360Sync': Object.freeze([ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT]),
+  'Api.diamonds.applyLoupe360Sync': Object.freeze([ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN]),
+
+  'Api.payments.init': Object.freeze([ROLE.ADMIN, ROLE.JOC]),
+  'Api.payments.submit': Object.freeze([ROLE.ADMIN, ROLE.JOC]),
+  'Api.payments.history': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.READ_ONLY_VIEWER]),
+  'Api.payments.exportPdf': Object.freeze([ROLE.ADMIN, ROLE.JOC]),
+  'Api.payments.reset': Object.freeze([ROLE.ADMIN]),
+
+  'Api.artifacts.uploadFolder': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC]),
+  'Api.artifacts.syncDriveUploads': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC]),
+  'Api.artifacts.getBrief': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.READ_ONLY_VIEWER]),
+
+  'Api.diag.benchmarks': Object.freeze([ROLE.ADMIN]),
+  'Api.diag.driftReport': Object.freeze([ROLE.ADMIN]),
+  'Api.diag.opsLog': Object.freeze([ROLE.ADMIN]),
+});
