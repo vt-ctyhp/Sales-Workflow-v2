@@ -84,6 +84,22 @@ function extNow_() {
 }
 
 function extComparable_(value) {
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  if (value === null || value === undefined || value === '') {
+    return '';
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  var text = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(text) || /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(text)) {
+    var parsed = Date.parse(text);
+    if (!isNaN(parsed)) {
+      return parsed;
+    }
+  }
   return repoComparable_(value);
 }
 
