@@ -57,6 +57,10 @@ const PERMISSIONS = Object.freeze({
   'Api.artifacts.syncDriveUploads': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC]),
   'Api.artifacts.getBrief': Object.freeze([ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.READ_ONLY_VIEWER]),
 
+  'Api.intake.injectTest': Object.freeze([ROLE.ADMIN]),
+  'Api.intake.manualBooking': Object.freeze([ROLE.ADMIN]),
+  'Api.intake.runTestScenarios': Object.freeze([ROLE.ADMIN]),
+
   'Api.diag.benchmarks': Object.freeze([ROLE.ADMIN]),
   'Api.diag.driftReport': Object.freeze([ROLE.ADMIN]),
   'Api.diag.opsLog': Object.freeze([ROLE.ADMIN]),

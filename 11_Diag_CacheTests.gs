@@ -47,6 +47,22 @@ function cacheTestsSeed_(suite) {
   cacheTestCall_(suite, 'seed diamond viewing', function() {
     return repoAppend_('DiamondViewing', repoTestDiamondViewing_(ctx));
   }, cacheTestOk_);
+  cacheTestCall_(suite, 'seed proposed diamond stone', function() {
+    var proposed = Stones.upsertProposed(ctx.rootId, [{
+      CertNo: ctx.stoneCertNo,
+      Shape: 'Oval',
+    }]);
+    Stones.markOrdered([ctx.stoneCertNo], {
+      OrderedDate: new Date(2026, 4, 1),
+      TrackingStatus: 'In Transit',
+    });
+    return proposed;
+  }, cacheTestOk_);
+  cacheTestCall_(suite, 'seed in-stock diamond stone', function() {
+    return Stones.assignInStock(ctx.stockStoneCertNo, ctx.rootId, {
+      Shape: 'Radiant',
+    });
+  }, cacheTestOk_);
   cacheTestCall_(suite, 'seed wax request', function() {
     return Wax.create(repoTestWax_(ctx, ctx.waxRequestId, new Date(2026, 4, 6)));
   }, cacheTestOk_);
@@ -81,6 +97,9 @@ function cacheTestsInvalidateAll_(suite, reason) {
       CACHE_SLICE.CALENDAR_MONTH,
       CACHE_SLICE.APPOINTMENT_BRIEF,
       CACHE_SLICE.ADMIN_HEALTH,
+      CACHE_SLICE.DIAMOND_INVENTORY,
+      CACHE_SLICE.DIAMOND_TRACKING,
+      CACHE_SLICE.DIAMOND_ROOT,
       CACHE_SLICE.PAYMENT_SUMMARY,
       CACHE_SLICE.FORM_OPTIONS,
     ], {
@@ -229,6 +248,30 @@ function cacheTestsGeneralSlices_(suite) {
     return result.ok &&
       result.data.templates.some(function(row) { return row.TemplateKey === ctx.templateKey; }) &&
       result.data.activeUsers.some(function(row) { return row.Email === ctx.userEmail; });
+  });
+
+  cacheTestCall_(suite, 'DiamondRootSlice returns stones assigned to root', function() {
+    return CacheSlices.diamondRoot(ctx.rootId);
+  }, function(result) {
+    return result.ok && result.data.rows.some(function(row) {
+      return row.CertNo === ctx.stoneCertNo;
+    });
+  });
+
+  cacheTestCall_(suite, 'DiamondInventorySlice returns in-stock stones', function() {
+    return CacheSlices.diamondInventory({ shape: 'Radiant' });
+  }, function(result) {
+    return result.ok && result.data.rows.some(function(row) {
+      return row.CertNo === ctx.stockStoneCertNo;
+    });
+  });
+
+  cacheTestCall_(suite, 'DiamondTrackingSlice returns active tracked stones', function() {
+    return CacheSlices.diamondTracking({});
+  }, function(result) {
+    return result.ok && result.data.rows.some(function(row) {
+      return row.CertNo === ctx.stoneCertNo;
+    });
   });
 }
 

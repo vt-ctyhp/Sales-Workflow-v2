@@ -50,6 +50,7 @@ function customerDetailBuild_(rootApptId, mode) {
       'status',
       'order3d',
       'wax',
+      'diamondViewing',
       'finance',
       'appointmentLinks',
       'aiBrief',
@@ -68,6 +69,7 @@ function customerDetailReadBundle_(rootApptId) {
   var order3d = Order3D.get(rootApptId);
   var order3dHistory = repoFindMany_('Order3DHistory', { RootApptID: rootApptId });
   var diamondViewing = DiamondViewing.get(rootApptId);
+  var stones = Stones.getByRoot(rootApptId);
   var wax = Wax.getLatestByRoot(rootApptId);
   var artifacts = Artifacts.getByRoot(rootApptId);
   var tasks = repoFindMany_('TaskQueue', { RootApptID: rootApptId });
@@ -82,6 +84,7 @@ function customerDetailReadBundle_(rootApptId) {
     order3d: order3d,
     order3dHistory: order3dHistory,
     diamondViewing: diamondViewing,
+    stones: stones,
     wax: wax,
     artifacts: artifacts,
     tasks: tasks,
@@ -102,6 +105,7 @@ function customerDetailFullPayload_(rootApptId, mode, bundle) {
   var statusHistory = bundle.statusHistory.ok ? bundle.statusHistory.data : [];
   var order3dHistory = bundle.order3dHistory.ok ? bundle.order3dHistory.data : [];
   var taskLogs = bundle.taskLogs.ok ? bundle.taskLogs.data : [];
+  var stones = bundle.stones.ok ? bundle.stones.data : [];
 
   return {
     rootApptId: rootApptId,
@@ -113,8 +117,9 @@ function customerDetailFullPayload_(rootApptId, mode, bundle) {
       status,
       order3d,
       bundle.diamondViewing.ok ? bundle.diamondViewing.data : null,
+      ].concat(stones).concat([
       wax,
-    ]),
+    ])),
     sections: {
       identity: cacheIdentityMini_(customer),
       owners: cacheOwnersMini_(customer),
@@ -123,7 +128,8 @@ function customerDetailFullPayload_(rootApptId, mode, bundle) {
       statusHistory: statusHistory,
       order3d: order3d || null,
       order3dHistory: order3dHistory,
-      diamondViewing: bundle.diamondViewing.ok ? bundle.diamondViewing.data : null,
+      diamondViewing: customerDetailDiamondSection_(bundle.diamondViewing.ok ? bundle.diamondViewing.data : null, stones),
+      stones: stones,
       wax: wax ? cacheWaxMini_(wax) : null,
       finance: bundle.finance && bundle.finance.ok ? bundle.finance.data : null,
       artifacts: artifacts,
@@ -183,6 +189,14 @@ function customerDetailAppointmentLinks_(appointment, artifacts) {
     }).map(function(artifact) {
       return artifact.SummaryDocUrl;
     }),
+  };
+}
+
+function customerDetailDiamondSection_(diamondViewing, stones) {
+  return {
+    viewing: diamondViewing || null,
+    stones: stones || [],
+    count: (stones || []).length,
   };
 }
 

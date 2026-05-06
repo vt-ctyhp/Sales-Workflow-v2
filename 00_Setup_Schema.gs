@@ -1,5 +1,5 @@
 const SALES_WORKFLOW_SPREADSHEET_ID = '1ePPAdCsa6ZQZx6MJMP27IMaFUQFG5xzlaDL5opc7fQI';
-const SETUP_REVISION = 'phase0';
+const SETUP_REVISION = 'phase3-intake';
 
 const Setup = Object.freeze({
   runAll: function() {

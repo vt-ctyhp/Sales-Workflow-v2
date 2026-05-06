@@ -62,12 +62,12 @@ function serviceTestsTaskGeneration_(suite) {
     EtaRisk: true,
   });
   var stones = [
-    { StoneID: 'stone_order', StoneStatus: 'Proposed' },
-    { StoneID: 'stone_track', StoneStatus: 'Ordered' },
-    { StoneID: 'stone_confirm', StoneStatus: 'Delivered Pending Confirmation' },
-    { StoneID: 'stone_decision', StoneStatus: 'Decision Due' },
-    { StoneID: 'stone_return', StoneStatus: 'Return Due' },
-    { StoneID: 'stone_eta', StoneStatus: 'ETA Risk' },
+    { CertNo: 'stone_order', OrderStatus: 'Proposing' },
+    { CertNo: 'stone_track', OrderStatus: 'On the Way' },
+    { CertNo: 'stone_confirm', OrderStatus: 'On the Way', TrackingStatus: 'Arrived' },
+    { CertNo: 'stone_decision', OrderStatus: 'Delivered', StoneStatus: 'In Stock' },
+    { CertNo: 'stone_return', OrderStatus: 'Delivered', StoneStatus: 'In Stock', ReturnDueDate: new Date(Date.now() - 24 * 60 * 60 * 1000) },
+    { CertNo: 'stone_eta', OrderStatus: 'On the Way', TrackingStatus: 'Delayed' },
   ];
   var cleanupStatus = mergeObjects_(status, {
     NeedsCleanupReview: true,
@@ -119,28 +119,6 @@ function serviceTestsTaskGeneration_(suite) {
 
 function serviceTestsAdapters_(suite) {
   var ctx = suite.ctx;
-  serviceTestCall_(suite, 'Stones adapter assigns and reads by root', function() {
-    Stones.assign('stone_phase3_' + ctx.suffix, ctx.rootId, {
-      Shape: 'Oval',
-      Carat: 1.5,
-      Color: 'E',
-      Clarity: 'VS1',
-    });
-    var byRoot = Stones.getByRoot(ctx.rootId);
-    var inStock = Stones.getInStock({ shape: 'Oval', inStockOnly: false });
-    var preview = Stones.previewLoupe360Sync('loupe_' + ctx.suffix);
-    var applied = Stones.applyLoupe360Sync('loupe_' + ctx.suffix, { changes: [] });
-    return {
-      ok: byRoot.ok && inStock.ok && preview.ok && applied.ok,
-      byRoot: byRoot,
-      inStock: inStock,
-      preview: preview,
-      applied: applied,
-    };
-  }, function(result) {
-    return result.ok && result.byRoot.data.length >= 1;
-  });
-
   serviceTestCall_(suite, 'Tracker adapter appends and reads entries', function() {
     Tracker.appendLog(ctx.rootId, {
       EventType: 'REPO_TEST',
@@ -250,7 +228,7 @@ function serviceTestsDiamonds_(suite) {
     };
   }, function(result) {
     return result.ok && result.stones.data.some(function(row) {
-      return row.StoneID === 'diamond_phase3_' + suite.ctx.suffix && row.Decision === 'Selected';
+      return row.CertNo === 'diamond_phase3_' + suite.ctx.suffix && row.Decision === 'Selected';
     });
   });
 }

@@ -124,13 +124,13 @@ function taskGenDiamondTasks_(appointment, dv, stones) {
     dueAt: new Date(),
   }));
 
-  if (taskGenAnyStone_(stones, ['Proposed', 'Order Review', 'Orderable'])) {
+  if (taskGenAnyStoneOrder_(stones, ['Proposing'])) {
     tasks.push(taskGenDesiredTask_(TASK_TYPE.ORDER_DIAMONDS, rootId, appointment.APPT_ID, {
       ownerRole: ROLE.DIAMOND_ORDER_ADMIN,
       dueAt: new Date(),
     }));
   }
-  if (taskGenAnyStone_(stones, ['Ordered'])) {
+  if (taskGenAnyStoneOrder_(stones, ['On the Way'])) {
     tasks.push(taskGenDesiredTask_(TASK_TYPE.TRACK_DIAMONDS, rootId, appointment.APPT_ID, {
       ownerRole: ROLE.DIAMOND_ORDER_ASSISTANT,
       dueAt: new Date(),
@@ -144,25 +144,25 @@ function taskGenDiamondTasks_(appointment, dv, stones) {
       dueAt: new Date(),
     }));
   }
-  if (taskGenAnyStone_(stones, ['Delivered Pending Confirmation'])) {
+  if (taskGenAnyStoneArrived_(stones)) {
     tasks.push(taskGenDesiredTask_(TASK_TYPE.CONFIRM_DIAMOND_DELIVERY, rootId, appointment.APPT_ID, {
       ownerRole: ROLE.DIAMOND_ORDER_ADMIN,
       dueAt: new Date(),
     }));
   }
-  if (dv.DecisionsDue === true || taskGenAnyStone_(stones, ['Decision Due'])) {
+  if (dv.DecisionsDue === true || taskGenAnyStoneDecisionDue_(stones)) {
     tasks.push(taskGenDesiredTask_(TASK_TYPE.RECORD_DIAMOND_DECISIONS, rootId, appointment.APPT_ID, {
       ownerRole: ROLE.JOC,
       dueAt: new Date(),
     }));
   }
-  if (taskGenAnyStone_(stones, ['Return Due'])) {
+  if (taskGenAnyStoneReturnDue_(stones)) {
     tasks.push(taskGenDesiredTask_(TASK_TYPE.RETURN_DIAMONDS, rootId, appointment.APPT_ID, {
       ownerRole: ROLE.DIAMOND_ORDER_ASSISTANT,
       dueAt: new Date(),
     }));
   }
-  if (dv.EtaRisk === true || taskGenAnyStone_(stones, ['ETA Risk'])) {
+  if (dv.EtaRisk === true || taskGenAnyStoneEtaRisk_(stones, appointment)) {
     tasks.push(taskGenDesiredTask_(TASK_TYPE.REVIEW_DIAMOND_ETA_ASSIGNED_REP, rootId, appointment.APPT_ID, {
       ownerRole: ROLE.CLIENT_ADVISOR,
       dueAt: new Date(),
@@ -316,6 +316,47 @@ function taskGenDiamondWorkflowActive_(dv) {
 function taskGenAnyStone_(stones, statuses) {
   return (stones || []).some(function(stone) {
     return statuses.indexOf(stone.StoneStatus) !== -1 || statuses.indexOf(stone.WorkflowState) !== -1 || statuses.indexOf(stone.ReturnStatus) !== -1 || stone.EtaRisk === true && statuses.indexOf('ETA Risk') !== -1;
+  });
+}
+
+function taskGenAnyStoneOrder_(stones, statuses) {
+  return (stones || []).some(function(stone) {
+    return statuses.indexOf(stone.OrderStatus) !== -1;
+  });
+}
+
+function taskGenAnyStoneArrived_(stones) {
+  return (stones || []).some(function(stone) {
+    var tracking = String(stone.TrackingStatus || '').toLowerCase();
+    return stone.OrderStatus === 'On the Way' && (tracking === 'arrived' || tracking === 'delivered');
+  });
+}
+
+function taskGenAnyStoneDecisionDue_(stones) {
+  return (stones || []).some(function(stone) {
+    return stone.OrderStatus === 'Delivered' && stone.StoneStatus === 'In Stock' && !stone.Decision;
+  });
+}
+
+function taskGenAnyStoneReturnDue_(stones) {
+  return (stones || []).some(function(stone) {
+    if (stone.ReturnStatus === 'Return Due' || stone.ReturnStatus === 'Return Overdue') {
+      return true;
+    }
+    if (!stone.ReturnDueDate || stone.ReturnStatus === 'Return In Progress') {
+      return false;
+    }
+    return new Date(stone.ReturnDueDate).getTime() <= Date.now() + 7 * 24 * 60 * 60 * 1000;
+  });
+}
+
+function taskGenAnyStoneEtaRisk_(stones, appointment) {
+  var appointmentStart = appointment && appointment.AppointmentStart ? new Date(appointment.AppointmentStart).getTime() : 0;
+  var riskyStatuses = ['delayed', 'concerning', 'unavailable', 'canceled', 'cancelled'];
+  return (stones || []).some(function(stone) {
+    var tracking = String(stone.TrackingStatus || '').toLowerCase();
+    var eta = stone.TrackingETA ? new Date(stone.TrackingETA).getTime() : 0;
+    return riskyStatuses.indexOf(tracking) !== -1 || Boolean(appointmentStart && eta && eta > appointmentStart);
   });
 }
 

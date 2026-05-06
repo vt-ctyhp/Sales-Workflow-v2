@@ -210,25 +210,33 @@ function taskCompletionFinalRecap_(task, payload) {
 }
 
 function taskCompletionDiamond_(task, payload) {
-  var stoneIds = payload.stoneIds || payload.StoneIDs || [];
+  var stoneIds = payload.stoneIds || payload.StoneIDs || payload.certNos || payload.CertNos || [];
+  if (task.TaskType === TASK_TYPE.PROPOSE_DIAMONDS) {
+    return DiamondService.submitProposal(task.RootApptID, payload, payload.diamondViewingVersion || null);
+  }
   if (task.TaskType === TASK_TYPE.ORDER_DIAMONDS) {
     return Stones.markOrdered(stoneIds, payload.fields || {});
   }
   if (task.TaskType === TASK_TYPE.TRACK_DIAMONDS) {
-    return Tracker.appendLog(task.RootApptID, {
+    var tracking = Stones.updateTracking(stoneIds, payload.fields || payload);
+    var trackerLog = Tracker.appendLog(task.RootApptID, {
       EventType: TASK_TYPE.TRACK_DIAMONDS,
       Notes: payload.notes || '',
       StoneIDs: stoneIds.join(','),
     });
+    return tracking.ok ? serviceOk_({
+      stones: tracking.data,
+      tracker: trackerLog.ok ? trackerLog.data : null,
+    }, tracking.version, serviceCollectInvalidations_(tracking, trackerLog)) : tracking;
   }
   if (task.TaskType === TASK_TYPE.CONFIRM_DIAMOND_DELIVERY) {
-    return Stones.markDelivered(stoneIds);
+    return Stones.markDelivered(stoneIds, payload.fields || payload);
   }
   if (task.TaskType === TASK_TYPE.RECORD_DIAMOND_DECISIONS) {
     return Stones.recordDecisions(task.RootApptID, payload.decisions || []);
   }
   if (task.TaskType === TASK_TYPE.RETURN_DIAMONDS) {
-    return Stones.markReturnInProgress(stoneIds);
+    return Stones.markReturnInProgress(stoneIds, payload.notes || payload.ReturnNotes || '');
   }
   return serviceOk_({
     taskType: task.TaskType,

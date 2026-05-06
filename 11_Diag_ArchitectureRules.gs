@@ -9,6 +9,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '02_Util_Time.gs',
   '02_Util_Strings.gs',
   '02_Util_Hashing.gs',
+  '02_Util_IntakeNormalize.gs',
   '03_Lock_DocLock.gs',
   '03_Lock_NamedLock.gs',
   '04_Repo_Core.gs',
@@ -18,6 +19,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '04_Repo_ClientStatus.gs',
   '04_Repo_Order3D.gs',
   '04_Repo_DiamondViewing.gs',
+  '04_Repo_Stones.gs',
   '04_Repo_Wax.gs',
   '04_Repo_Tasks.gs',
   '04_Repo_Artifacts.gs',
@@ -26,9 +28,9 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '04_Repo_Config.gs',
   '04_Repo_Templates.gs',
   '04_Repo_DataCleanup.gs',
+  '04_Repo_IntakeQueue.gs',
   '04_Repo_OpsLog.gs',
   '05_Ext_Core.gs',
-  '05_Ext_StonesWorkbook.gs',
   '05_Ext_PaymentLedger.gs',
   '05_Ext_TrackerWorkbook.gs',
   '05_Ext_QuoteWorkbook.gs',
@@ -46,6 +48,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '07_Cache_Slices.gs',
   '07_Cache_CustomerDetail.gs',
   '07_Cache_TaskList.gs',
+  '07_Cache_Diamonds.gs',
   '08_Api_Bootstrap.gs',
   '08_Api_Tasks.gs',
   '08_Api_Customers.gs',
@@ -53,6 +56,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '08_Api_Admin.gs',
   '08_Api_Diamonds.gs',
   '08_Api_Payments.gs',
+  '08_Api_Intake.gs',
   '08_Api_Artifacts.gs',
   '08_Api_SchedulesUsers.gs',
   '08_Api_Diagnostics.gs',
@@ -67,6 +71,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '11_Diag_CacheTests.gs',
   '11_Diag_RepoTests.gs',
   '11_Diag_ServiceTests.gs',
+  '11_Diag_TestIntake.gs',
   '11_Diag_Benchmarks.gs',
   '11_Diag_DriftCheck.gs',
 ]);
@@ -89,6 +94,9 @@ const Diag = Object.freeze({
   },
   serviceTests: function() {
     return ServiceTests.run();
+  },
+  testIntake: function() {
+    return TestIntake.run();
   },
 });
 

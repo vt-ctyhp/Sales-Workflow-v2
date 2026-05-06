@@ -9,7 +9,9 @@ const ROLE = Object.freeze({
 
 const BOOKING_SOURCE = Object.freeze({
   ACUITY: 'acuity',
+  CALENDLY: 'calendly',
   MANUAL: 'manual',
+  TEST: 'test',
 });
 
 const APPOINTMENT_STATUS = Object.freeze({
@@ -98,6 +100,7 @@ const CACHE_SLICE = Object.freeze({
   ADMIN_HEALTH: 'AdminHealthSlice',
   DIAMOND_INVENTORY: 'DiamondInventorySlice',
   DIAMOND_TRACKING: 'DiamondTrackingSlice',
+  DIAMOND_ROOT: 'DiamondRootSlice',
   PAYMENT_SUMMARY: 'PaymentSummarySlice',
   FORM_OPTIONS: 'FormOptionsSlice',
 });

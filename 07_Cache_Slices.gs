@@ -37,16 +37,17 @@ const CacheSlices = Object.freeze({
   },
   diamondInventory: function(filters) {
     return cacheGet_(CACHE_SLICE.DIAMOND_INVENTORY, filters || {}, function() {
-      return cacheSafeExternal_('Stones.getInStock', function() {
-        return Stones.getInStock(filters || {});
-      });
+      return DiamondCache.inventory(filters || {});
     }, { ttlSeconds: 60 });
   },
-  diamondTracking: function() {
-    return cacheGet_(CACHE_SLICE.DIAMOND_TRACKING, { scope: 'all' }, function() {
-      return cacheSafeExternal_('Stones.getByRoot', function() {
-        return Stones.getByRoot('');
-      });
+  diamondTracking: function(filters) {
+    return cacheGet_(CACHE_SLICE.DIAMOND_TRACKING, filters || { scope: 'all' }, function() {
+      return DiamondCache.tracking(filters || {});
+    }, { ttlSeconds: 60 });
+  },
+  diamondRoot: function(rootApptId) {
+    return cacheGet_(CACHE_SLICE.DIAMOND_ROOT, { rootApptId: rootApptId }, function() {
+      return DiamondCache.root(rootApptId);
     }, { ttlSeconds: 60 });
   },
   paymentSummary: function(rootApptId) {
@@ -71,6 +72,7 @@ const CACHE_TTL_BY_SLICE = Object.freeze({
   PaymentSummarySlice: CACHE_FAST_TTL_SECONDS,
   DiamondInventorySlice: CACHE_FAST_TTL_SECONDS,
   DiamondTrackingSlice: CACHE_FAST_TTL_SECONDS,
+  DiamondRootSlice: CACHE_FAST_TTL_SECONDS,
 });
 
 function cacheGet_(sliceName, key, builder, options) {
@@ -289,6 +291,8 @@ function cachePrewarm_() {
     }
     warmed.push(CacheSlices.calendarMonth(Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM')));
     warmed.push(CacheSlices.adminHealth({}));
+    warmed.push(CacheSlices.diamondInventory({}));
+    warmed.push(CacheSlices.diamondTracking({}));
     return {
       ok: true,
       warmed: warmed.length,

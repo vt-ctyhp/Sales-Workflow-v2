@@ -20,6 +20,7 @@ function repoTestsRun_() {
   repoTestsExerciseClientStatus_(suite);
   repoTestsExerciseOrder3D_(suite);
   repoTestsExerciseDiamondViewing_(suite);
+  repoTestsExerciseStones_(suite);
   repoTestsExerciseWax_(suite);
   repoTestsExerciseTasks_(suite);
   repoTestsExerciseArtifacts_(suite);
@@ -27,6 +28,7 @@ function repoTestsRun_() {
   repoTestsExerciseSchedules_(suite);
   repoTestsExerciseTemplates_(suite);
   repoTestsExerciseDataCleanup_(suite);
+  repoTestsExerciseIntakeQueue_(suite);
   repoTestsExerciseOpsLog_(suite);
   repoTestsExerciseLocks_(suite);
   repoTestsAssertRepoMethodCoverage_(suite);
@@ -236,6 +238,147 @@ function repoTestsExerciseDiamondViewing_(suite) {
     }, seeded.version);
   }, function(result) {
     return result.ok && result.data.WorkflowState === 'Proposal Ready';
+  });
+}
+
+function repoTestsExerciseStones_(suite) {
+  var ctx = suite.ctx;
+  var certNo = ctx.stoneCertNo;
+  var stockCertNo = ctx.stockStoneCertNo;
+  var aliasCertNo = ctx.aliasStoneCertNo;
+
+  repoTestCall_(suite, 'Stones.upsertProposed', 'upserts proposed stones by CertNo', function() {
+    return Stones.upsertProposed(ctx.rootId, [{
+      CertNo: certNo,
+      Shape: 'Oval',
+      Carat: 1.5,
+      Color: 'E',
+      Clarity: 'VS1',
+    }]);
+  }, function(result) {
+    return result.ok && result.data.updated[0].data.OrderStatus === 'Proposing';
+  });
+
+  repoTestCall_(suite, 'Stones.get', 'gets stone by CertNo', function() {
+    return Stones.get(certNo);
+  }, function(result) {
+    return result.ok && result.data.CertNo === certNo;
+  });
+
+  repoTestCall_(suite, 'Stones.getByCert', 'gets stone by CertNo alias', function() {
+    return Stones.getByCert(certNo);
+  }, function(result) {
+    return result.ok && result.data.CertNo === certNo;
+  });
+
+  repoTestCall_(suite, 'Stones.list', 'lists stones with filters', function() {
+    return Stones.list({ shape: 'Oval' });
+  }, function(result) {
+    return result.ok && repoTestHasRow_(result, 'CertNo', certNo);
+  });
+
+  repoTestCall_(suite, 'Stones.assignInStock', 'assigns in-stock stone to root', function() {
+    return Stones.assignInStock(stockCertNo, ctx.rootId, {
+      Shape: 'Radiant',
+      Holder: 'Repo test hold',
+    });
+  }, function(result) {
+    return result.ok && result.data.AssignedRootApptID === ctx.rootId && result.data.StoneStatus === 'In Stock';
+  });
+
+  repoTestCall_(suite, 'Stones.assign', 'assign alias delegates to in-stock assignment', function() {
+    return Stones.assign(aliasCertNo, ctx.rootId, {
+      Shape: 'Oval',
+    });
+  }, function(result) {
+    return result.ok && result.data.CertNo === aliasCertNo && result.data.AssignedRootApptID === ctx.rootId;
+  });
+
+  repoTestCall_(suite, 'Stones.getInStock', 'lists in-stock stones', function() {
+    return Stones.getInStock({ shape: 'Radiant' });
+  }, function(result) {
+    return result.ok && repoTestHasRow_(result, 'CertNo', stockCertNo);
+  });
+
+  repoTestCall_(suite, 'Stones.getByRoot', 'lists stones by root assignment', function() {
+    return Stones.getByRoot(ctx.rootId);
+  }, function(result) {
+    return result.ok && repoTestHasRow_(result, 'CertNo', certNo) && repoTestHasRow_(result, 'CertNo', stockCertNo);
+  });
+
+  repoTestCall_(suite, 'Stones.markOrdered', 'marks stone ordered', function() {
+    return Stones.markOrdered([certNo], {
+      OrderedDate: new Date(2026, 4, 1),
+      OrderedByEmail: ctx.userEmail,
+    });
+  }, function(result) {
+    return result.ok && result.data.updated[0].data.OrderStatus === 'On the Way';
+  });
+
+  repoTestCall_(suite, 'Stones.updateTracking', 'updates tracking details', function() {
+    return Stones.updateTracking([certNo], {
+      TrackingETA: new Date(2026, 4, 2),
+      TrackingStatus: 'Arrived',
+      Carrier: 'FedEx',
+      TrackingNumber: 'TRACK-' + ctx.suffix,
+    });
+  }, function(result) {
+    return result.ok && result.data.updated[0].data.TrackingStatus === 'Arrived' && Boolean(result.data.updated[0].data.LastTrackingCheckAt);
+  });
+
+  repoTestCall_(suite, 'Stones.markDelivered', 'marks stone delivered and computes return due date', function() {
+    return Stones.markDelivered([certNo], {
+      MemoDate: new Date(2026, 4, 3),
+    });
+  }, function(result) {
+    return result.ok && result.data.updated[0].data.OrderStatus === 'Delivered' && result.data.updated[0].data.StoneStatus === 'In Stock' && Boolean(result.data.updated[0].data.ReturnDueDate);
+  });
+
+  repoTestCall_(suite, 'Stones.recordDecisions', 'records customer stone decisions', function() {
+    return Stones.recordDecisions(ctx.rootId, [{
+      CertNo: certNo,
+      Decision: 'Return',
+    }]);
+  }, function(result) {
+    return result.ok && result.data.updated[0].data.Decision === 'Return';
+  });
+
+  repoTestCall_(suite, 'Stones.markReturnInProgress', 'marks return in progress', function() {
+    return Stones.markReturnInProgress([certNo], 'Repo test return');
+  }, function(result) {
+    return result.ok && result.data.updated[0].data.ReturnStatus === 'Return In Progress';
+  });
+
+  var preview = repoTestCall_(suite, 'Stones.previewLoupe360Sync', 'previews Loupe360 sync rows', function() {
+    return Stones.previewLoupe360Sync('loupe_' + ctx.suffix, [{
+      CertNo: ctx.syncStoneCertNo,
+      Shape: 'Emerald',
+      Carat: 2.01,
+      StoneStatus: 'In Stock',
+    }]);
+  }, function(result) {
+    return result.ok && result.data.willAppend === 1 && Boolean(result.data.syncId);
+  });
+
+  repoTestCall_(suite, 'Stones.applyLoupe360Sync', 'applies Loupe360 sync plan', function() {
+    return Stones.applyLoupe360Sync(preview.data.syncId);
+  }, function(result) {
+    return result.ok && result.data.results.length === 1;
+  });
+
+  repoTestCall_(suite, 'Stones.appendSync', 'appends stone sync audit row', function() {
+    return Stones.appendSync({
+      SyncID: ctx.syncId,
+      FileID: 'manual_sync_' + ctx.suffix,
+      SourceRows: 1,
+      Matched: 0,
+      Updated: 0,
+      Appended: 1,
+      Skipped: 0,
+      SyncNotes: 'Repo test sync audit',
+    });
+  }, function(result) {
+    return result.ok && result.data.SyncID === ctx.syncId;
   });
 }
 
@@ -459,6 +602,42 @@ function repoTestsExerciseDataCleanup_(suite) {
   });
 }
 
+function repoTestsExerciseIntakeQueue_(suite) {
+  var ctx = suite.ctx;
+  var queued = repoTestCall_(suite, 'IntakeQueue.enqueue', 'enqueues normalized intake payload', function() {
+    return IntakeQueue.enqueue(repoTestIntakePayload_(ctx, 'queued'));
+  }, function(result) {
+    return result.ok && result.data.Status === 'queued' && result.data.PayloadJson.bookingSource === BOOKING_SOURCE.TEST;
+  });
+
+  repoTestCall_(suite, 'IntakeQueue.listPending', 'lists pending intake payloads', function() {
+    return IntakeQueue.listPending(10);
+  }, function(result) {
+    return result.ok && repoTestHasRow_(result, 'IntakeID', queued.data.IntakeID);
+  });
+
+  repoTestCall_(suite, 'IntakeQueue.markProcessed', 'marks intake payload processed', function() {
+    return IntakeQueue.markProcessed(queued.data.IntakeID, {
+      ok: true,
+      rootApptId: ctx.rootId,
+    }, queued.version);
+  }, function(result) {
+    return result.ok && result.data.Status === 'processed' && Boolean(result.data.ProcessedAt);
+  });
+
+  var failed = repoTestCall_(suite, null, 'enqueues intake payload for error test', function() {
+    return IntakeQueue.enqueue(repoTestIntakePayload_(ctx, 'error'));
+  }, function(result) {
+    return result.ok;
+  });
+
+  repoTestCall_(suite, 'IntakeQueue.markError', 'marks intake payload error', function() {
+    return IntakeQueue.markError(failed.data.IntakeID, new Error('repo test intake error'), failed.version);
+  }, function(result) {
+    return result.ok && result.data.Status === 'error' && result.data.Error === 'repo test intake error';
+  });
+}
+
 function repoTestsExerciseOpsLog_(suite) {
   var ctx = suite.ctx;
   repoTestCall_(suite, 'OpsLog.append', 'appends ops log row', function() {
@@ -554,6 +733,11 @@ function repoTestContext_() {
     scheduleChangeId: 'schedule_change_phase1_' + suffix,
     templateKey: 'template_phase1_' + suffix,
     cleanupCaseId: 'cleanup_phase1_' + suffix,
+    stoneCertNo: 'cert_phase1_' + suffix,
+    stockStoneCertNo: 'cert_stock_phase1_' + suffix,
+    aliasStoneCertNo: 'cert_alias_phase1_' + suffix,
+    syncStoneCertNo: 'cert_sync_phase1_' + suffix,
+    syncId: 'sync_phase1_' + suffix,
     opsFunction: 'RepoTests.ops.' + suffix,
     deadlineDate: new Date(2026, 4, 30),
     weekStart: new Date(2026, 4, 4),
@@ -637,10 +821,12 @@ function repoTestPublicRepoMethods_() {
     CustomerInfo: CustomerInfo,
     DataCleanup: DataCleanup,
     DiamondViewing: DiamondViewing,
+    IntakeQueue: IntakeQueue,
     OpsLog: OpsLog,
     Order3D: Order3D,
     RootAppointments: RootAppointments,
     Schedules: Schedules,
+    Stones: Stones,
     Tasks: Tasks,
     Templates: Templates,
     Users: Users,
@@ -916,6 +1102,27 @@ function repoTestCleanupCase_(ctx) {
     IssueType: 'RepoTest',
     ProposedChangesJson: { repoTest: true },
     AdminNotes: 'Repo test cleanup case',
+  };
+}
+
+function repoTestIntakePayload_(ctx, name) {
+  return {
+    bookingSource: BOOKING_SOURCE.TEST,
+    externalBookingId: 'intake_repo_' + name + '_' + ctx.suffix,
+    action: 'create',
+    customerName: 'Repo Intake Test',
+    firstName: 'Repo',
+    lastName: 'Intake',
+    email: ctx.customerEmail,
+    phone: '(555) 010-0000',
+    brand: 'Phase1',
+    visitDateTime: '2026-05-06T10:00:00-07:00',
+    visitType: 'Initial consult',
+    duration: 60,
+    location: 'Showroom',
+    source: 'RepoTests',
+    receivedAt: '2026-05-05T22:00:00-07:00',
+    rawPayload: { repoTest: true, name: name },
   };
 }
 
