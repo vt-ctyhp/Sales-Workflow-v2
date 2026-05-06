@@ -326,12 +326,26 @@ function repoTestsExerciseArtifacts_(suite) {
     return result.ok && repoTestHasRow_(result, 'ArtifactID', ctx.artifactId);
   });
 
-  repoTestCall_(suite, 'Artifacts.markApproved', 'marks artifact approved with version check', function() {
-    return Artifacts.markApproved(ctx.artifactId, {
-      SummaryDocUrl: 'https://example.com/summary',
+  var updated = repoTestCall_(suite, 'Artifacts.update', 'updates artifact with version check', function() {
+    return Artifacts.update(ctx.artifactId, {
+      TranscriptDocUrl: 'https://example.com/transcript',
     }, created.version);
   }, function(result) {
+    return result.ok && result.data.TranscriptDocUrl === 'https://example.com/transcript';
+  });
+
+  var approved = repoTestCall_(suite, 'Artifacts.markApproved', 'marks artifact approved with version check', function() {
+    return Artifacts.markApproved(ctx.artifactId, {
+      SummaryDocUrl: 'https://example.com/summary',
+    }, updated.version);
+  }, function(result) {
     return result.ok && result.data.WorkflowStage === ARTIFACT_STAGE.APPROVED && Boolean(result.data.ApprovedAt);
+  });
+
+  repoTestCall_(suite, 'Artifacts.markHandoff', 'marks artifact JOC handoff with version check', function() {
+    return Artifacts.markHandoff(ctx.artifactId, {}, approved.version);
+  }, function(result) {
+    return result.ok && result.data.WorkflowStage === ARTIFACT_STAGE.JOC_HANDOFF && Boolean(result.data.JOCHandoffAt);
   });
 }
 

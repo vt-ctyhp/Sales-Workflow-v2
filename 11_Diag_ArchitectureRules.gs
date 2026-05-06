@@ -27,6 +27,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '04_Repo_Templates.gs',
   '04_Repo_DataCleanup.gs',
   '04_Repo_OpsLog.gs',
+  '05_Ext_Core.gs',
   '05_Ext_StonesWorkbook.gs',
   '05_Ext_PaymentLedger.gs',
   '05_Ext_TrackerWorkbook.gs',
@@ -35,6 +36,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '05_Ext_Acuity.gs',
   '05_Ext_AssemblyAI.gs',
   '05_Ext_OpenAI.gs',
+  '06_Service_Core.gs',
   '06_Service_Intake.gs',
   '06_Service_TaskGeneration.gs',
   '06_Service_TaskCompletion.gs',
@@ -64,6 +66,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '11_Diag_ArchitectureRules.gs',
   '11_Diag_CacheTests.gs',
   '11_Diag_RepoTests.gs',
+  '11_Diag_ServiceTests.gs',
   '11_Diag_Benchmarks.gs',
   '11_Diag_DriftCheck.gs',
 ]);
@@ -83,6 +86,9 @@ const Diag = Object.freeze({
   },
   repoTests: function() {
     return RepoTests.run();
+  },
+  serviceTests: function() {
+    return ServiceTests.run();
   },
 });
 
