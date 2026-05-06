@@ -54,6 +54,8 @@ function apiTestsSeed_(suite) {
     PasswordHash: AuthService.hashPassword(ctx.adminPassword, ctx.adminSalt),
   });
   Users.upsert(repoTestUser_(ctx));
+  ConfigRepo.set('payments', 'drive.parent.ar.hpusa', 'api_ar_parent_hpusa_' + ctx.suffix);
+  ConfigRepo.set('payments', 'drive.parent.ar.vvs', 'api_ar_parent_vvs_' + ctx.suffix);
 
   [
     ctx.taskId,
@@ -163,10 +165,15 @@ function apiTestsAuthFailures_(suite) {
     ['Api.diamonds.previewLoupe360Sync auth failure', function() { return ApiDiamonds.previewLoupe360Sync('file'); }],
     ['Api.diamonds.applyLoupe360Sync auth failure', function() { return ApiDiamonds.applyLoupe360Sync('sync'); }],
     ['Api.payments.init auth failure', function() { return ApiPayments.init(suite.ctx.rootId); }],
+    ['Api.payments.validatePrerequisites auth failure', function() { return ApiPayments.validatePrerequisites(suite.ctx.rootId, 'SR'); }],
     ['Api.payments.submit auth failure', function() { return ApiPayments.submit(suite.ctx.rootId, {}, 1); }],
+    ['Api.payments.regenerateDoc auth failure', function() { return ApiPayments.regenerateDoc('pay_missing'); }],
+    ['Api.payments.submitCombo auth failure', function() { return ApiPayments.submitCombo(suite.ctx.rootId, {}, 1); }],
     ['Api.payments.history auth failure', function() { return ApiPayments.history(suite.ctx.rootId); }],
+    ['Api.payments.getDocLinks auth failure', function() { return ApiPayments.getDocLinks('pay_missing'); }],
     ['Api.payments.exportPdf auth failure', function() { return ApiPayments.exportPdf('pay_missing'); }],
     ['Api.payments.reset auth failure', function() { return ApiPayments.reset(suite.ctx.rootId, 1); }],
+    ['Api.payments.adminVoid auth failure', function() { return ApiPayments.adminVoid('pay_missing', '', 1); }],
     ['Api.artifacts.uploadFolder auth failure', function() { return ApiArtifacts.uploadFolder(suite.ctx.artifactTaskId, 'recording'); }],
     ['Api.artifacts.syncDriveUploads auth failure', function() { return ApiArtifacts.syncDriveUploads(suite.ctx.artifactTaskId); }],
     ['Api.artifacts.getBrief auth failure', function() { return ApiArtifacts.getBrief(suite.ctx.rootId); }],
@@ -398,33 +405,85 @@ function apiTestsHappyPaths_(suite) {
   apiTestCall_(suite, 'Api.payments.init happy path', function() {
     return ApiPayments.init(ctx.rootId, staff);
   }, function(result) {
-    return result.ok && result.data.rootApptId === ctx.rootId;
+    return result.ok && result.data.rootApptId === ctx.rootId && result.data.eligibleDocTypes.length === 4;
+  });
+  apiTestCall_(suite, 'Api.payments.validatePrerequisites blocks Sales Receipt without invoice', function() {
+    return ApiPayments.validatePrerequisites(ctx.rootId, 'SR', {
+      Brand: 'HPUSA',
+      SO: 'api_missing_invoice_' + ctx.suffix,
+    }, staff);
+  }, function(result) {
+    return !result.ok && result.reason === 'sales_invoice_required';
   });
   apiTestCall_(suite, 'Api.payments.submit happy path', function() {
-    return ApiPayments.submit(ctx.rootId, {
-      Amount: 75,
-      Method: 'card',
-    }, null, staff);
+    return ApiPayments.submit(ctx.rootId, apiTestPaymentPayload_(ctx, 'HPUSA', 'DI', {
+      SO: 'api_pay_' + ctx.suffix,
+    }), null, staff);
   }, function(result) {
     if (result.ok) {
-      suite.paymentId = result.data.payment.PaymentID;
+      suite.paymentId = result.data.payment.PaymentId;
     }
-    return result.ok && result.data.summary.paymentCount >= 1;
+    return result.ok && result.data.payment.DocURL && result.data.payment.PDFURL;
+  });
+  apiTestCall_(suite, 'Api.payments.submit Sales Invoice for Sales Receipt prerequisite', function() {
+    return ApiPayments.submit(ctx.rootId, apiTestPaymentPayload_(ctx, 'HPUSA', 'SI', {
+      SO: 'api_sr_' + ctx.suffix,
+    }), null, staff);
+  }, function(result) {
+    return result.ok && result.data.payment.DocType === 'SI';
+  });
+  apiTestCall_(suite, 'Api.payments.validatePrerequisites allows Sales Receipt with invoice', function() {
+    return ApiPayments.validatePrerequisites(ctx.rootId, 'SR', {
+      Brand: 'HPUSA',
+      SO: 'api_sr_' + ctx.suffix,
+    }, staff);
+  }, function(result) {
+    return result.ok && result.data.eligible === true;
+  });
+  apiTestCall_(suite, 'Api.payments.regenerateDoc happy path', function() {
+    return ApiPayments.regenerateDoc(suite.paymentId, null, staff);
+  }, function(result) {
+    return result.ok && result.data.payment.DocURL && result.data.payment.PDFURL;
+  });
+  apiTestCall_(suite, 'Api.payments.submitCombo happy path', function() {
+    return ApiPayments.submitCombo(ctx.rootId, apiTestPaymentPayload_(ctx, 'HPUSA', 'SI', {
+      SO: 'api_combo_' + ctx.suffix,
+      AmountReceived: 100,
+    }), null, staff);
+  }, function(result) {
+    return result.ok && result.data.invoice.payment.DocType === 'SI' && result.data.receipt.payment.DocType === 'SR';
   });
   apiTestCall_(suite, 'Api.payments.history happy path', function() {
     return ApiPayments.history(ctx.rootId, staff);
   }, function(result) {
     return result.ok && result.data.length >= 1;
   });
+  apiTestCall_(suite, 'Api.payments.getDocLinks happy path', function() {
+    return ApiPayments.getDocLinks(suite.paymentId, staff);
+  }, function(result) {
+    return result.ok && result.data.docUrl && result.data.pdfUrl;
+  });
   apiTestCall_(suite, 'Api.payments.exportPdf happy path', function() {
     return ApiPayments.exportPdf(suite.paymentId, staff);
   }, function(result) {
-    return result.ok && result.data.invoiceUrl.indexOf(suite.paymentId) !== -1;
+    return result.ok && result.data.pdfUrl && result.data.contentType === 'application/pdf';
   });
   apiTestCall_(suite, 'Api.payments.reset happy path', function() {
     return ApiPayments.reset(ctx.rootId, null, admin);
   }, function(result) {
     return result.ok && result.data.rootApptId === ctx.rootId;
+  });
+  apiTestCall_(suite, 'Api.payments.adminVoid happy path', function() {
+    var receipt = ApiPayments.submit(ctx.rootId, apiTestPaymentPayload_(ctx, 'HPUSA', 'DR', {
+      SO: 'api_void_' + ctx.suffix,
+      AmountReceived: 80,
+    }), null, staff);
+    if (!receipt.ok) {
+      return receipt;
+    }
+    return ApiPayments.adminVoid(receipt.data.payment.PaymentId, 'api test void', receipt.data.payment.Version, admin);
+  }, function(result) {
+    return result.ok && result.data.payment.Status === 'Voided' && result.data.payment.DocURL && result.data.payment.PDFURL;
   });
 
   apiTestCall_(suite, 'Api.artifacts.uploadFolder happy path', function() {
@@ -473,6 +532,7 @@ function apiTestsRoleRules_(suite) {
   var diamondAdmin = apiTestContext_(ROLE.DIAMOND_ORDER_ADMIN, 'diamond.admin+' + ctx.suffix + '@example.com');
   var assistant = apiTestContext_(ROLE.DIAMOND_ORDER_ASSISTANT, 'diamond.assistant+' + ctx.suffix + '@example.com');
   var admin = apiTestContext_(ROLE.ADMIN, ctx.adminEmail);
+  var advisor = apiTestContext_(ROLE.CLIENT_ADVISOR, 'advisor+' + ctx.suffix + '@example.com');
 
   apiTestCall_(suite, 'Diamond Order Admin can call Api.diamonds.assignInStock', function() {
     return ApiDiamonds.assignInStock(ctx.assignCertNo, ctx.rootId, {
@@ -508,6 +568,9 @@ function apiTestsRoleRules_(suite) {
   }, function(result) {
     return result.ok && result.data.appended >= 1;
   });
+  apiTestCall_(suite, 'Client Advisor cannot call Api.payments.adminVoid', function() {
+    return ApiPayments.adminVoid('pay_missing_' + ctx.suffix, 'forbidden', 1, advisor);
+  }, apiTestForbidden_);
 }
 
 function apiTestsBenchmarks_(suite) {
@@ -558,6 +621,22 @@ function apiTestAuthRequired_(result) {
 
 function apiTestForbidden_(result) {
   return Boolean(result && !result.ok && result.reason === 'forbidden' && result.error && result.error.code === 'FORBIDDEN');
+}
+
+function apiTestPaymentPayload_(ctx, brand, docType, overrides) {
+  return mergeObjects_({
+    Brand: brand,
+    DocType: docType,
+    SO: ctx.soNumber + '_' + brand + '_' + docType + '_' + ctx.suffix,
+    Method: 'card',
+    AmountReceived: paymentIsReceipt_(docType) ? 75 : 0,
+    LineItems: [{
+      Description: brand + ' ' + docType + ' API test',
+      Quantity: 1,
+      UnitPrice: 250,
+      Taxable: brand === 'VVS',
+    }],
+  }, overrides || {});
 }
 
 function apiTestsBuildResult_(suite) {

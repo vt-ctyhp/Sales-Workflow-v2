@@ -62,6 +62,12 @@ function benchmarksRun_() {
     benchmarksMeasure_('PaymentSummarySlice', function() {
       return CacheSlices.paymentSummary(ctx.rootId);
     }),
+    benchmarksMeasure_('PaymentService.init', function() {
+      return PaymentService.init(ctx.rootId);
+    }),
+    benchmarksMeasure_('PaymentService.submit.DI', function() {
+      return PaymentService.submit(ctx.rootId, benchmarkPaymentPayload_(ctx, 'DI'));
+    }),
   ];
   var failures = metrics.filter(function(metric) {
     return !metric.ok;
@@ -78,6 +84,21 @@ function benchmarksRun_() {
     slowestStep: metrics.length ? metrics[0] : null,
     metrics: metrics,
     failures: failures,
+  };
+}
+
+function benchmarkPaymentPayload_(ctx, docType) {
+  return {
+    Brand: 'HPUSA',
+    DocType: docType,
+    SO: ctx.soNumber + '_benchmark_' + docType,
+    Method: 'card',
+    LineItems: [{
+      Description: 'Benchmark payment',
+      Quantity: 1,
+      UnitPrice: 100,
+      Taxable: false,
+    }],
   };
 }
 

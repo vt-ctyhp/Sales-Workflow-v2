@@ -1,7 +1,8 @@
 {
-  "scriptId": "1NeL5eUxkj7RVrVn2xHyZM8XdFYpfiOoqJbwpmvBAuMX_wBrYVxgB0Hxd",
+  "scriptId": "1qk1GpQCWXijHd3t0SCuNw7ObLDE-Lry8Rd8NiZEzbO3yevA8_KkQZWIu",
+  "projectId": "sales-workflow-v3",
   "rootDir": "",
-  "parentId": "1ePPAdCsa6ZQZx6MJMP27IMaFUQFG5xzlaDL5opc7fQI",
+  "parentId": "1XA7ozQFhtZJj9oX6PuiBer4dpwt9wEFuJ4M4bpaj-ms",
   "scriptExtensions": [
     ".js",
     ".gs"

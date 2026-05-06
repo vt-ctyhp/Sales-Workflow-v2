@@ -594,6 +594,13 @@ function repoTestsExerciseTemplates_(suite) {
     return result.ok && result.data.TemplateKey === ctx.templateKey;
   });
 
+  repoTestCall_(suite, 'Templates.getId', 'resolves payment document template id', function() {
+    ConfigRepo.set('payments', 'HPUSA_DI_TEMPLATE_ID', 'template_hpusa_di_' + ctx.suffix);
+    return Templates.getId('HPUSA', 'DI', '');
+  }, function(result) {
+    return result.ok && result.data.templateId === 'template_hpusa_di_' + ctx.suffix;
+  });
+
   repoTestCall_(suite, 'Templates.listActive', 'lists active templates', function() {
     return Templates.listActive();
   }, function(result) {

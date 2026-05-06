@@ -177,29 +177,148 @@ function serviceTestsAdapters_(suite) {
 function serviceTestsPayments_(suite) {
   var ctx = suite.ctx;
   serviceTestsSeedCustomerBundle_(suite);
+  ConfigRepo.set('payments', 'drive.parent.ar.hpusa', 'ar_parent_hpusa_' + ctx.suffix);
+  ConfigRepo.set('payments', 'drive.parent.ar.vvs', 'ar_parent_vvs_' + ctx.suffix);
   serviceTestCall_(suite, 'PaymentService.init reads customer and ledger context', function() {
     return PaymentService.init(ctx.rootId);
   }, function(result) {
-    return result.ok && result.data.rootApptId === ctx.rootId;
+    return result.ok && result.data.rootApptId === ctx.rootId && result.data.eligibleDocTypes.length === 4;
   });
-  serviceTestCall_(suite, 'PaymentService.submit appends ledger row', function() {
-    var submitted = PaymentService.submit(ctx.rootId, {
-      Amount: 250,
-      Method: 'card',
-      AdvanceSalesStage: SALES_STAGE.DEPOSIT_RECEIVED,
+
+  [
+    { brand: 'HPUSA', mode: '', taxable: false },
+    { brand: 'VVS', mode: 'TAX', taxable: true },
+    { brand: 'VVS', mode: 'NOTAX', taxable: false },
+  ].forEach(function(combo) {
+    ['DI', 'DR', 'SI', 'SR'].forEach(function(docType) {
+      serviceTestCall_(suite, 'PaymentService.submit generates docs for ' + combo.brand + ' ' + (combo.mode || 'standard') + ' ' + docType, function() {
+        return PaymentService.submit(ctx.rootId, serviceTestPaymentPayload_(ctx, combo.brand, combo.mode, docType, {
+          Taxable: combo.taxable,
+          SO: ctx.soNumber + '_' + combo.brand + '_' + (combo.mode || 'STD'),
+        }));
+      }, function(result) {
+        return result.ok &&
+          result.data.payment.Brand === combo.brand &&
+          result.data.payment.DocType === docType &&
+          result.data.payment.DocNumber.indexOf(combo.brand + '-' + docType + '-') === 0 &&
+          String(result.data.doc.TemplateID || '').toUpperCase().indexOf(combo.brand + '_' + docType) !== -1 &&
+          result.data.payment.DocFileId &&
+          result.data.payment.DocPDFId &&
+          result.data.payment.DocURL &&
+          result.data.payment.PDFURL &&
+          result.data.payment.ARShortcutId;
+      });
     });
-    if (!submitted.ok) {
-      return submitted;
+  });
+
+  serviceTestCall_(suite, 'PaymentService.validatePrerequisites blocks Sales Receipt without Sales Invoice', function() {
+    return PaymentService.validatePrerequisites(ctx.rootId, 'SR', {
+      Brand: 'HPUSA',
+      SO: 'missing_invoice_' + ctx.suffix,
+    });
+  }, function(result) {
+    return !result.ok && result.reason === 'sales_invoice_required';
+  });
+
+  serviceTestCall_(suite, 'PaymentService.validatePrerequisites allows Sales Receipt with Sales Invoice', function() {
+    return PaymentService.validatePrerequisites(ctx.rootId, 'SR', {
+      Brand: 'HPUSA',
+      SO: ctx.soNumber + '_HPUSA_STD',
+    });
+  }, function(result) {
+    return result.ok && result.data.eligible === true;
+  });
+
+  serviceTestCall_(suite, 'PaymentService doc number sequencing produces 50 distinct numbers', function() {
+    var seen = {};
+    var duplicate = false;
+    for (var i = 0; i < 50; i += 1) {
+      var next = paymentNextDocNumber_('HPUSA', 'DI');
+      if (!next.ok) {
+        return next;
+      }
+      duplicate = duplicate || Boolean(seen[next.data.docNumber]);
+      seen[next.data.docNumber] = true;
     }
-    var linked = Ledger.linkDocs(submitted.data.payment.PaymentID, 'https://example.com/invoice', 'https://example.com/receipt');
     return {
-      ok: submitted.ok && linked.ok,
-      submitted: submitted,
-      linked: linked,
+      ok: !duplicate && Object.keys(seen).length === 50,
+      count: Object.keys(seen).length,
     };
   }, function(result) {
-    return result.ok && result.submitted.data.summary.paidToDate >= 250 && result.linked.data.InvoiceUrl;
+    return result.ok && result.count === 50;
   });
+
+  serviceTestCall_(suite, 'PaymentService.submitCombo creates Sales Invoice then Sales Receipt', function() {
+    return PaymentService.submitCombo(ctx.rootId, serviceTestPaymentPayload_(ctx, 'HPUSA', '', 'SI', {
+      SO: 'combo_' + ctx.suffix,
+      AmountReceived: 125,
+    }));
+  }, function(result) {
+    return result.ok &&
+      result.data.invoice.payment.DocType === 'SI' &&
+      result.data.receipt.payment.DocType === 'SR' &&
+      result.data.receipt.payment.PDFURL;
+  });
+
+  serviceTestCall_(suite, 'PaymentService.adminVoid reverses receipt summary and keeps doc links', function() {
+    var receipt = PaymentService.submit(ctx.rootId, serviceTestPaymentPayload_(ctx, 'HPUSA', '', 'DR', {
+      SO: 'void_' + ctx.suffix,
+      AmountReceived: 60,
+    }));
+    if (!receipt.ok) {
+      return receipt;
+    }
+    var before = Ledger.summary(ctx.rootId);
+    var voided = PaymentService.adminVoid(receipt.data.payment.PaymentId, 'service test void', receipt.data.payment.Version);
+    var after = Ledger.summary(ctx.rootId);
+    return {
+      ok: voided.ok && after.ok && before.ok,
+      before: before,
+      after: after,
+      voided: voided,
+    };
+  }, function(result) {
+    return result.ok &&
+      result.after.data.paidToDate <= result.before.data.paidToDate - 60 &&
+      result.voided.data.payment.Status === 'Voided' &&
+      result.voided.data.payment.DocURL &&
+      result.voided.data.payment.PDFURL;
+  });
+
+  serviceTestCall_(suite, 'PaymentService.regenerateDoc succeeds after Phase 2 template failure', function() {
+    var failed = PaymentService.submit(ctx.rootId, serviceTestPaymentPayload_(ctx, 'HPUSA', '', 'DI', {
+      SO: 'regen_' + ctx.suffix,
+      ForceTemplateMissing: true,
+    }));
+    if (failed.ok || !failed.detail || !failed.detail.payment) {
+      return failed;
+    }
+    var regenerated = PaymentService.regenerateDoc(failed.detail.payment.PaymentId);
+    return {
+      ok: regenerated.ok,
+      failed: failed,
+      regenerated: regenerated,
+    };
+  }, function(result) {
+    return result.ok && result.regenerated.data.payment.DocURL && result.regenerated.data.payment.PDFURL;
+  });
+}
+
+function serviceTestPaymentPayload_(ctx, brand, mode, docType, overrides) {
+  var taxable = overrides && overrides.Taxable !== undefined ? overrides.Taxable : mode === 'TAX';
+  return mergeObjects_({
+    Brand: brand,
+    DocType: docType,
+    SO: ctx.soNumber + '_' + brand + '_' + (mode || 'STD') + '_' + docType,
+    Method: 'card',
+    AmountReceived: paymentIsReceipt_(docType) ? 50 : 0,
+    LineItems: [{
+      Description: brand + ' ' + docType + ' service test',
+      Quantity: 1,
+      UnitPrice: 200,
+      Taxable: taxable,
+    }],
+  }, overrides || {});
 }
 
 function serviceTestsDiamonds_(suite) {

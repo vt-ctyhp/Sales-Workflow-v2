@@ -164,7 +164,7 @@ function apiVisibleViews_(roles) {
   if (apiHasAnyRole_(roles, [ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT, ROLE.CLIENT_ADVISOR, ROLE.JOC])) {
     views.push('diamonds');
   }
-  if (apiHasAnyRole_(roles, [ROLE.ADMIN, ROLE.JOC])) {
+  if (apiHasAnyRole_(roles, [ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC])) {
     views.push('payments');
   }
   if (roles.indexOf(ROLE.ADMIN) !== -1) {
