@@ -3,7 +3,7 @@ const TriggerTaskGen = Object.freeze({
     return phaseNotImplemented_('Trigger.taskGen');
   },
   cachePrewarm: function() {
-    return phaseNotImplemented_('Trigger.cachePrewarm');
+    return CacheSlices.prewarm();
   },
 });
 

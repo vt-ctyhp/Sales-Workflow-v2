@@ -62,6 +62,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '10_Trigger_Artifacts.gs',
   '10_Trigger_Maintenance.gs',
   '11_Diag_ArchitectureRules.gs',
+  '11_Diag_CacheTests.gs',
   '11_Diag_RepoTests.gs',
   '11_Diag_Benchmarks.gs',
   '11_Diag_DriftCheck.gs',
@@ -76,6 +77,9 @@ const Diag = Object.freeze({
   },
   benchmarks: function() {
     return phaseNotImplemented_('Diag.benchmarks');
+  },
+  cacheTests: function() {
+    return CacheTests.run();
   },
   repoTests: function() {
     return RepoTests.run();
