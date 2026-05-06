@@ -1,9 +1,9 @@
 const TriggerArtifacts = Object.freeze({
   artifacts: function() {
-    return phaseNotImplemented_('Trigger.artifacts');
+    return artifactProcessTick_(ARTIFACT_TRIGGER_BATCH_SIZE);
   },
 });
 
 function triggerArtifacts() {
-  return TriggerArtifacts.artifacts();
+  return executionSafeResponse_(TriggerArtifacts.artifacts());
 }

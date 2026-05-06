@@ -19,6 +19,10 @@ function serviceError_(reason, detail) {
   };
 }
 
+function executionSafeResponse_(value) {
+  return JSON.parse(JSON.stringify(value || null));
+}
+
 function serviceCollectInvalidations_() {
   var output = [];
   for (var i = 0; i < arguments.length; i += 1) {
@@ -55,7 +59,7 @@ function serviceFlatten_(values) {
   return output;
 }
 
-function serviceTaskLog_(task, eventType, oldState, newState, notes, metadata) {
+function serviceTaskLog_(task, eventType, oldState, newState, notes, metadata, actor) {
   return Tasks.appendLog({
     TaskID: task.TaskID,
     RootApptID: task.RootApptID,
@@ -63,6 +67,7 @@ function serviceTaskLog_(task, eventType, oldState, newState, notes, metadata) {
     OldState: oldState || '',
     NewState: newState || '',
     Notes: notes || '',
+    ActorEmail: actor && actor.email || getActiveUserEmail_(),
     MetadataJson: metadata || {},
   });
 }

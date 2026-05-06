@@ -78,6 +78,7 @@ const PROJECT_SOURCE_FILES = Object.freeze([
   '11_Diag_TestIntake.gs',
   '11_Diag_Benchmarks.gs',
   '11_Diag_DriftCheck.gs',
+  '11_Diag_RunSummary.gs',
 ]);
 
 const Diag = Object.freeze({

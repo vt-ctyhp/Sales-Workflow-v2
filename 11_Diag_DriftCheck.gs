@@ -19,7 +19,7 @@ function driftCheckRun_() {
   return {
     ok: errors.length === 0,
     implemented: true,
-    phase: 5,
+    phase: 6,
     checkedAt: new Date().toISOString(),
     architecture: architecture,
     schema: schema,

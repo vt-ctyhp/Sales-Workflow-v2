@@ -10,6 +10,8 @@ const ArtifactService = Object.freeze({
   },
 });
 
+const ARTIFACT_TRIGGER_BATCH_SIZE = 10;
+
 function artifactUploadFolder_(taskId, artifactType) {
   var task = Tasks.get(taskId);
   if (!task.ok) {
@@ -47,53 +49,63 @@ function artifactSyncDriveUploads_(taskId) {
       existingByFile[artifact.DriveFileId] = true;
     });
   }
-  var registered = files.data.filter(function(file) {
+  var registered = [];
+  files.data.filter(function(file) {
     return !existingByFile[file.FileID];
-  }).map(function(file) {
-    return Artifacts.registerUpload({
-      RootApptID: task.data.RootApptID,
-      APPT_ID: task.data.APPT_ID,
-      TaskID: taskId,
-      ArtifactType: 'recording',
-      WorkflowStage: ARTIFACT_STAGE.UPLOADED,
-      DriveFileId: file.FileID,
-      DriveFileUrl: file.Url,
-      DriveFolderId: folder.data.folderId,
-      Attempts: 0,
-      MetadataJson: {
-        fileName: file.Name,
-      },
-    });
+  }).forEach(function(file) {
+    var result = artifactWithWriteLock_(function() {
+      return Artifacts.registerUpload({
+        RootApptID: task.data.RootApptID,
+        APPT_ID: task.data.APPT_ID,
+        TaskID: taskId,
+        ArtifactType: 'recording',
+        WorkflowStage: ARTIFACT_STAGE.UPLOADED,
+        DriveFileId: file.FileID,
+        DriveFileUrl: file.Url,
+        DriveFolderId: folder.data.folderId,
+        Attempts: 0,
+        MetadataJson: {
+          fileName: file.Name,
+        },
+      });
+    }, 'sync', taskId);
+    registered.push(result);
   });
   return serviceOk_({
     taskId: taskId,
     registered: registered,
-    count: registered.length,
+    count: registered.filter(function(result) { return result.ok; }).length,
+    failures: registered.filter(function(result) { return !result.ok; }),
   }, null, [CACHE_SLICE.APPOINTMENT_BRIEF, CACHE_SLICE.CUSTOMER_ROOT_DETAIL]);
 }
 
-function artifactProcessTick_() {
-  var rows = repoReadAll_('AppointmentArtifacts');
-  if (!rows.ok) {
-    return rows;
-  }
-  var processed = [];
-  var failures = [];
-  rows.data.forEach(function(artifact) {
-    if ([ARTIFACT_STAGE.UPLOADED, ARTIFACT_STAGE.TRANSCRIPTION_QUEUED, ARTIFACT_STAGE.TRANSCRIBING, ARTIFACT_STAGE.TRANSCRIPT_READY].indexOf(artifact.WorkflowStage) === -1) {
-      return;
+function artifactProcessTick_(limit) {
+  return NamedLock.withLock('trigger.artifacts', function() {
+    var rows = repoReadAll_('AppointmentArtifacts');
+    if (!rows.ok) {
+      return rows;
     }
-    var result = artifactProcessOne_(artifact);
-    processed.push(result);
-    if (!result.ok) {
-      failures.push(result);
-    }
-  });
-  return serviceOk_({
-    processed: processed.length,
-    failures: failures,
-    results: processed,
-  }, null, [CACHE_SLICE.APPOINTMENT_BRIEF, CACHE_SLICE.CUSTOMER_ROOT_DETAIL, CACHE_SLICE.TASK_LIST]);
+    var eligible = rows.data.filter(function(artifact) {
+      return [ARTIFACT_STAGE.UPLOADED, ARTIFACT_STAGE.TRANSCRIPTION_QUEUED, ARTIFACT_STAGE.TRANSCRIBING, ARTIFACT_STAGE.TRANSCRIPT_READY].indexOf(artifact.WorkflowStage) !== -1;
+    });
+    var selected = limit ? eligible.slice(0, Number(limit)) : eligible;
+    var processed = [];
+    var failures = [];
+    selected.forEach(function(artifact) {
+      var result = artifactProcessOne_(artifact);
+      processed.push(result);
+      if (!result.ok) {
+        failures.push(result);
+      }
+    });
+    return serviceOk_({
+      processed: processed.length,
+      eligible: eligible.length,
+      limit: limit || '',
+      failures: failures,
+      results: processed,
+    }, null, [CACHE_SLICE.APPOINTMENT_BRIEF, CACHE_SLICE.CUSTOMER_ROOT_DETAIL, CACHE_SLICE.TASK_LIST]);
+  }, 1000);
 }
 
 function artifactProcessOne_(artifact) {
@@ -103,13 +115,15 @@ function artifactProcessOne_(artifact) {
       if (!started.ok) {
         return artifactProcessFailure_(artifact, started.reason || 'transcription_start_failed');
       }
-      return Artifacts.update(artifact.ArtifactID, {
-        WorkflowStage: ARTIFACT_STAGE.TRANSCRIPTION_QUEUED,
-        TranscriptId: started.data.TranscriptID,
-        MetadataJson: mergeObjects_(artifact.MetadataJson || {}, {
-          transcriptionStartedAt: new Date(),
-        }),
-      }, artifact.Version);
+      return artifactWithWriteLock_(function() {
+        return Artifacts.update(artifact.ArtifactID, {
+          WorkflowStage: ARTIFACT_STAGE.TRANSCRIPTION_QUEUED,
+          TranscriptId: started.data.TranscriptID,
+          MetadataJson: mergeObjects_(artifact.MetadataJson || {}, {
+            transcriptionStartedAt: new Date(),
+          }),
+        }, artifact.Version);
+      }, 'queue', artifact.ArtifactID);
     }
     if (artifact.WorkflowStage === ARTIFACT_STAGE.TRANSCRIPTION_QUEUED || artifact.WorkflowStage === ARTIFACT_STAGE.TRANSCRIBING) {
       var polled = AssemblyAI.pollTranscription(artifact.TranscriptId);
@@ -117,20 +131,24 @@ function artifactProcessOne_(artifact) {
         return artifactProcessFailure_(artifact, polled.reason || 'transcription_poll_failed');
       }
       if (polled.data.Status !== 'completed') {
+        return artifactWithWriteLock_(function() {
+          return Artifacts.update(artifact.ArtifactID, {
+            WorkflowStage: ARTIFACT_STAGE.TRANSCRIBING,
+            MetadataJson: mergeObjects_(artifact.MetadataJson || {}, {
+              transcriptStatus: polled.data.Status,
+            }),
+          }, artifact.Version);
+        }, 'poll', artifact.ArtifactID);
+      }
+      return artifactWithWriteLock_(function() {
         return Artifacts.update(artifact.ArtifactID, {
-          WorkflowStage: ARTIFACT_STAGE.TRANSCRIBING,
+          WorkflowStage: ARTIFACT_STAGE.TRANSCRIPT_READY,
+          TranscriptDocUrl: 'https://docs.google.com/document/d/' + polled.data.TranscriptID,
           MetadataJson: mergeObjects_(artifact.MetadataJson || {}, {
-            transcriptStatus: polled.data.Status,
+            transcriptText: polled.data.Text,
           }),
         }, artifact.Version);
-      }
-      return Artifacts.update(artifact.ArtifactID, {
-        WorkflowStage: ARTIFACT_STAGE.TRANSCRIPT_READY,
-        TranscriptDocUrl: 'https://docs.google.com/document/d/' + polled.data.TranscriptID,
-        MetadataJson: mergeObjects_(artifact.MetadataJson || {}, {
-          transcriptText: polled.data.Text,
-        }),
-      }, artifact.Version);
+      }, 'transcriptReady', artifact.ArtifactID);
     }
     if (artifact.WorkflowStage === ARTIFACT_STAGE.TRANSCRIPT_READY) {
       var customer = CustomerInfo.get(artifact.RootApptID);
@@ -138,14 +156,16 @@ function artifactProcessOne_(artifact) {
       if (!summary.ok) {
         return artifactProcessFailure_(artifact, summary.reason || 'summary_failed');
       }
-      return Artifacts.update(artifact.ArtifactID, {
-        WorkflowStage: ARTIFACT_STAGE.SUMMARY_READY,
-        SummaryDocUrl: 'https://docs.google.com/document/d/' + artifact.ArtifactID + '_summary',
-        SummaryJsonFileId: artifact.ArtifactID + '_summary_json',
-        MetadataJson: mergeObjects_(artifact.MetadataJson || {}, {
-          summary: summary.data,
-        }),
-      }, artifact.Version);
+      return artifactWithWriteLock_(function() {
+        return Artifacts.update(artifact.ArtifactID, {
+          WorkflowStage: ARTIFACT_STAGE.SUMMARY_READY,
+          SummaryDocUrl: 'https://docs.google.com/document/d/' + artifact.ArtifactID + '_summary',
+          SummaryJsonFileId: artifact.ArtifactID + '_summary_json',
+          MetadataJson: mergeObjects_(artifact.MetadataJson || {}, {
+            summary: summary.data,
+          }),
+        }, artifact.Version);
+      }, 'summaryReady', artifact.ArtifactID);
     }
     return serviceOk_(artifact, artifact.Version, []);
   } catch (err) {
@@ -155,9 +175,22 @@ function artifactProcessOne_(artifact) {
 
 function artifactProcessFailure_(artifact, reason) {
   var attempts = Number(artifact.Attempts || 0) + 1;
-  return Artifacts.update(artifact.ArtifactID, {
-    Attempts: attempts,
-    LastError: reason,
-    WorkflowStage: attempts >= 3 ? ARTIFACT_STAGE.MANUAL_REVIEW : artifact.WorkflowStage,
-  }, artifact.Version);
+  return artifactWithWriteLock_(function() {
+    return Artifacts.update(artifact.ArtifactID, {
+      Attempts: attempts,
+      LastError: reason,
+      WorkflowStage: attempts >= 3 ? ARTIFACT_STAGE.MANUAL_REVIEW : artifact.WorkflowStage,
+    }, artifact.Version);
+  }, 'failure', artifact.ArtifactID);
+}
+
+function artifactWithWriteLock_(callback, action, target) {
+  return DocLock.withBackgroundWriteLock(callback, {
+    timeoutMs: 100,
+    functionName: 'Trigger.artifacts.' + action,
+    target: target || 'AppointmentArtifacts',
+    metadata: {
+      action: action,
+    },
+  });
 }

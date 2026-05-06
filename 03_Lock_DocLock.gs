@@ -34,19 +34,42 @@ function docLockRun_(callback, context) {
       retry: true,
       reason: 'busy',
       lockWaitMs: waitMs,
+      lockHoldMs: 0,
     };
   }
   var holdStarted = Date.now();
+  var holdMs = 0;
+  var result;
+  var thrown = null;
+  var logResult = 'ok';
+  var logMetadata = {};
   try {
-    var result = callback();
-    docLockLogMetric_(context, 'ok', waitMs, Date.now() - holdStarted, {});
-    return result;
+    result = callback();
   } catch (err) {
-    docLockLogMetric_(context, 'error', waitMs, Date.now() - holdStarted, { error: err.message });
-    throw err;
+    thrown = err;
+    logResult = 'error';
+    logMetadata = { error: err.message };
   } finally {
+    holdMs = Date.now() - holdStarted;
     lock.releaseLock();
   }
+  docLockLogMetric_(context, logResult, waitMs, holdMs, logMetadata);
+  if (thrown) {
+    throw thrown;
+  }
+  return docLockAttachMetrics_(result, waitMs, holdMs);
+}
+
+function docLockAttachMetrics_(result, waitMs, holdMs) {
+  if (result && typeof result === 'object' && !Array.isArray(result)) {
+    if (result.lockWaitMs === undefined) {
+      result.lockWaitMs = waitMs;
+    }
+    if (result.lockHoldMs === undefined) {
+      result.lockHoldMs = holdMs;
+    }
+  }
+  return result;
 }
 
 function docLockLogMetric_(context, result, waitMs, holdMs, metadata) {

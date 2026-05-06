@@ -1,4 +1,7 @@
 const TaskGen = Object.freeze({
+  runTick: function(limit) {
+    return taskGenRunTick_(limit);
+  },
   coreAppointmentTasks: function(appointment, status, artifacts) {
     return taskGenCoreAppointmentTasks_(appointment || {}, status || {}, artifacts || []);
   },
@@ -15,6 +18,262 @@ const TaskGen = Object.freeze({
     return taskGenDiff_(desired || [], current || []);
   },
 });
+
+const TASK_GEN_CURSOR_KEY = 'salesWorkflow.taskGen.cursor';
+const TASK_GEN_TRIGGER_BATCH_SIZE = 10;
+
+function taskGenRunTick_(limit) {
+  return NamedLock.withLock('trigger.taskGen', function() {
+    var context = taskGenReadContext_();
+    var roots = context.roots.filter(function(root) {
+      return root.IsActive !== false && root.RootLifecycleState !== ROOT_LIFECYCLE_STATE.ARCHIVED;
+    });
+    var selection = taskGenSelectBatch_(roots, limit);
+    roots = selection.roots;
+    var summary = {
+      processed: 0,
+      totalRoots: selection.totalRoots,
+      batchStart: selection.startIndex,
+      batchNext: selection.nextIndex,
+      batched: selection.batched,
+      desired: 0,
+      upserted: 0,
+      blocked: 0,
+      skipped: 0,
+      failures: [],
+    };
+    roots.forEach(function(root) {
+      var result = taskGenProcessRoot_(root, context);
+      summary.processed += 1;
+      summary.desired += result.desired || 0;
+      summary.upserted += result.upserted || 0;
+      summary.blocked += result.blocked || 0;
+      summary.skipped += result.skipped || 0;
+      if (!result.ok) {
+        summary.failures.push(result);
+      }
+    });
+    var invalidations = summary.upserted || summary.blocked ? [
+      CACHE_SLICE.TASK_LIST,
+      CACHE_SLICE.TASK_DETAIL,
+      CACHE_SLICE.CUSTOMER_ROOT_DETAIL,
+      CACHE_SLICE.ADMIN_HEALTH,
+    ] : [];
+    if (invalidations.length) {
+      CacheSlices.invalidate(invalidations, {
+        reason: 'task_generation_tick',
+      });
+    }
+    return serviceOk_(summary, null, invalidations);
+  }, 1000);
+}
+
+function taskGenSelectBatch_(roots, limit) {
+  var total = roots.length;
+  var size = Number(limit || 0);
+  if (!size || size >= total || total === 0) {
+    return {
+      roots: roots,
+      totalRoots: total,
+      startIndex: 0,
+      nextIndex: 0,
+      batched: false,
+    };
+  }
+  var props = PropertiesService.getScriptProperties();
+  var rawStart = Number(props.getProperty(TASK_GEN_CURSOR_KEY) || 0);
+  var start = rawStart >= 0 && rawStart < total ? rawStart : 0;
+  var selected = [];
+  var count = Math.min(size, total);
+  for (var i = 0; i < count; i += 1) {
+    selected.push(roots[(start + i) % total]);
+  }
+  var next = (start + count) % total;
+  props.setProperty(TASK_GEN_CURSOR_KEY, String(next));
+  return {
+    roots: selected,
+    totalRoots: total,
+    startIndex: start,
+    nextIndex: next,
+    batched: true,
+  };
+}
+
+function taskGenReadContext_() {
+  return {
+    roots: repoReadAll_('RootAppointments').data || [],
+    appointmentsByRoot: taskGenGroupBy_(repoReadAll_('AppointmentEvents').data || [], 'RootApptID'),
+    statusByRoot: taskGenFirstBy_(repoReadAll_('ClientStatus').data || [], 'RootApptID'),
+    customerByRoot: taskGenFirstBy_(repoReadAll_('CustomerInfo').data || [], 'RootApptID'),
+    order3dByRoot: taskGenFirstBy_(repoReadAll_('Order3D').data || [], 'RootApptID'),
+    diamondViewingByRoot: taskGenFirstBy_(repoReadAll_('DiamondViewing').data || [], 'RootApptID'),
+    artifactsByRoot: taskGenGroupBy_(repoReadAll_('AppointmentArtifacts').data || [], 'RootApptID'),
+    stonesByRoot: taskGenGroupBy_(repoReadAll_('Stones').data || [], 'AssignedRootApptID'),
+    tasksByRoot: taskGenGroupBy_(repoReadAll_('TaskQueue').data || [], 'RootApptID'),
+  };
+}
+
+function taskGenProcessRoot_(root, context) {
+  try {
+    var rootId = root.RootApptID;
+    var appointments = taskGenActiveAppointments_(context.appointmentsByRoot[rootId] || []);
+    var latestAppointment = taskGenLatestAppointment_(root, appointments);
+    if (!latestAppointment && !rootId) {
+      return { ok: true, skipped: 1, desired: 0, upserted: 0, blocked: 0 };
+    }
+    var status = context.statusByRoot[rootId] || {};
+    var customer = context.customerByRoot[rootId] || {};
+    var order3d = context.order3dByRoot[rootId] || {};
+    var diamondViewing = context.diamondViewingByRoot[rootId] || {};
+    var artifacts = context.artifactsByRoot[rootId] || [];
+    var stones = context.stonesByRoot[rootId] || [];
+    var desired = [];
+    appointments.forEach(function(appointment) {
+      desired = desired.concat(TaskGen.coreAppointmentTasks(appointment, status, artifacts));
+    });
+    desired = desired
+      .concat(TaskGen.postConsultTasks(latestAppointment || {}, status, order3d))
+      .concat(TaskGen.diamondTasks(latestAppointment || {}, diamondViewing, stones))
+      .concat(TaskGen.dataCleanupTasks(root, customer, status))
+      .map(function(task) {
+        return taskGenAssignOwner_(task, customer);
+      });
+    var current = context.tasksByRoot[rootId] || [];
+    var diff = TaskGen.diff(desired, current);
+    var upserted = 0;
+    var blocked = 0;
+    var failures = [];
+    diff.upserts.forEach(function(task) {
+      var result = taskGenWithWriteLock_(function() {
+        return Tasks.upsert(task);
+      }, 'upsert', task.TaskID);
+      if (result.ok) {
+        upserted += 1;
+      } else {
+        failures.push(taskGenMutationFailure_('upsert', task.TaskID, result));
+      }
+    });
+    diff.blocks.forEach(function(task) {
+      var result = taskGenWithWriteLock_(function() {
+        return repoUpdateByKey_('TaskQueue', task.TaskID, {
+          TaskState: TASK_STATE.BLOCKED,
+          BlockReason: 'Generated task no longer matches desired state.',
+        }, task.Version, 'TaskID');
+      }, 'block', task.TaskID);
+      if (result.ok) {
+        blocked += 1;
+      } else {
+        failures.push(taskGenMutationFailure_('block', task.TaskID, result));
+      }
+    });
+    return {
+      ok: failures.length === 0,
+      rootApptId: rootId,
+      desired: desired.length,
+      upserted: upserted,
+      blocked: blocked,
+      failures: failures,
+      skipped: 0,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      rootApptId: root && root.RootApptID || '',
+      reason: err.message,
+      desired: 0,
+      upserted: 0,
+      blocked: 0,
+      skipped: 1,
+    };
+  }
+}
+
+function taskGenWithWriteLock_(callback, action, taskId) {
+  return DocLock.withBackgroundWriteLock(callback, {
+    timeoutMs: 100,
+    functionName: 'Trigger.taskGen.' + action,
+    target: taskId || 'TaskQueue',
+    metadata: {
+      action: action,
+    },
+  });
+}
+
+function taskGenMutationFailure_(action, taskId, result) {
+  return {
+    action: action,
+    taskId: taskId || '',
+    reason: result && result.reason || 'mutation_failed',
+    retry: Boolean(result && result.retry),
+    lockWaitMs: result && result.lockWaitMs || 0,
+  };
+}
+
+function taskGenAssignOwner_(task, customer) {
+  if (!task.OwnerRole || task.OwnerEmail) {
+    return task;
+  }
+  if (task.OwnerRole === ROLE.CLIENT_ADVISOR) {
+    return mergeObjects_(task, {
+      OwnerEmail: customer.ClientAdvisorEmail || '',
+      OwnerName: customer.ClientAdvisorName || '',
+    });
+  }
+  if (task.OwnerRole === ROLE.JOC) {
+    return mergeObjects_(task, {
+      OwnerEmail: customer.JOCOwnerEmail || '',
+      OwnerName: customer.JOCOwnerName || '',
+    });
+  }
+  return task;
+}
+
+function taskGenActiveAppointments_(appointments) {
+  return (appointments || []).filter(function(appointment) {
+    return appointment.AppointmentStatus !== APPOINTMENT_STATUS.CANCELED;
+  }).sort(function(a, b) {
+    return repoComparable_(a.AppointmentStart || a.AppointmentDate) > repoComparable_(b.AppointmentStart || b.AppointmentDate) ? 1 : -1;
+  });
+}
+
+function taskGenLatestAppointment_(root, appointments) {
+  var ids = [root.CurrentAPPT_ID, root.LatestAPPT_ID].filter(Boolean);
+  for (var i = 0; i < ids.length; i += 1) {
+    var match = (appointments || []).filter(function(appointment) {
+      return appointment.APPT_ID === ids[i];
+    })[0];
+    if (match) {
+      return match;
+    }
+  }
+  return appointments && appointments.length ? appointments[appointments.length - 1] : null;
+}
+
+function taskGenGroupBy_(rows, key) {
+  var groups = {};
+  (rows || []).forEach(function(row) {
+    var value = row[key] || '';
+    if (!value) {
+      return;
+    }
+    if (!groups[value]) {
+      groups[value] = [];
+    }
+    groups[value].push(row);
+  });
+  return groups;
+}
+
+function taskGenFirstBy_(rows, key) {
+  var first = {};
+  (rows || []).forEach(function(row) {
+    var value = row[key] || '';
+    if (value && !first[value]) {
+      first[value] = row;
+    }
+  });
+  return first;
+}
 
 function taskGenCoreAppointmentTasks_(appointment, status, artifacts) {
   var tasks = [];

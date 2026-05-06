@@ -36,7 +36,8 @@
 
       button,
       input,
-      select {
+      select,
+      textarea {
         font: inherit;
       }
 
@@ -112,7 +113,8 @@
       }
 
       input,
-      select {
+      select,
+      textarea {
         width: 100%;
         border: 0;
         border-bottom: 1px solid var(--rule);
@@ -123,10 +125,16 @@
       }
 
       input:focus,
-      select:focus {
+      select:focus,
+      textarea:focus {
         outline: none;
         border-bottom: 2px solid var(--accent);
         padding-bottom: 6px;
+      }
+
+      textarea {
+        min-height: 72px;
+        resize: vertical;
       }
 
       .actions {
@@ -535,6 +543,31 @@
         padding-bottom: 0;
       }
 
+      .task-form {
+        display: grid;
+        gap: 18px;
+      }
+
+      .field-grid {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .field-grid.one {
+        grid-template-columns: 1fr;
+      }
+
+      .form-message {
+        min-height: 20px;
+        color: var(--ink-muted);
+        font-size: 12px;
+      }
+
+      .form-message.error {
+        color: var(--accent);
+      }
+
       .template-box {
         min-height: 0;
         background: var(--surface-inset);
@@ -791,7 +824,8 @@
 
         .grid.compact,
         .section-grid,
-        .section-grid.two {
+        .section-grid.two,
+        .field-grid {
           grid-template-columns: 1fr;
         }
 
@@ -848,7 +882,7 @@
   <body>
     <div id="app" class="app"></div>
     <script>
-      const STORAGE_KEY = 'salesWorkflow.sessionToken';
+      const STORAGE_KEY = 'salesWorkflowToken';
       const VIEW_LABELS = {
         tasks: 'Tasks',
         myQueue: 'My Queue',
@@ -903,8 +937,24 @@
         users: 'manageUsers'
       };
       const ROLE_OPTIONS = ['Admin', 'Client Advisor', 'JOC', 'Diamond Order Admin', 'Diamond Order Assistant', 'Read-Only Viewer'];
+      const WRITEBACK_TASK_TYPES = [
+        'POST_CONSULT_CLIENT_STATUS',
+        'START_3D_DESIGN',
+        'RECORD_3D_DEADLINE',
+        'REQUEST_WAX_PRINT',
+        'UPDATE_WAX_REQUEST',
+        'APPOINTMENT_DAY_CHECKLIST',
+        'APPROVE_RECAP_MESSAGE',
+        'SEND_FINAL_RECAP',
+        'PROPOSE_DIAMONDS',
+        'ORDER_DIAMONDS',
+        'TRACK_DIAMONDS',
+        'CONFIRM_DIAMOND_DELIVERY',
+        'RECORD_DIAMOND_DECISIONS',
+        'RETURN_DIAMONDS'
+      ];
       const state = {
-        token: localStorage.getItem(STORAGE_KEY) || '',
+        token: sessionStorage.getItem(STORAGE_KEY) || localStorage.getItem('salesWorkflow.sessionToken') || '',
         user: null,
         visibleViews: [],
         view: 'myQueue',
@@ -959,7 +1009,8 @@
           renderShell();
           await loadView(state.view);
         } catch (error) {
-          localStorage.removeItem(STORAGE_KEY);
+          sessionStorage.removeItem(STORAGE_KEY);
+          localStorage.removeItem('salesWorkflow.sessionToken');
           state.token = '';
           renderLogin(error.message);
         } finally {
@@ -1013,7 +1064,8 @@
             throw new Error(errorMessage(response));
           }
           state.token = response.data.session.token;
-          localStorage.setItem(STORAGE_KEY, state.token);
+          sessionStorage.setItem(STORAGE_KEY, state.token);
+          localStorage.removeItem('salesWorkflow.sessionToken');
           state.user = response.data.user;
           let bootstrap = response.data.bootstrap || {};
           if (!bootstrap.visibleViews) {
@@ -1140,7 +1192,8 @@
           clearUploadPoll();
           await server('webLogout', state.token);
         } finally {
-          localStorage.removeItem(STORAGE_KEY);
+        sessionStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem('salesWorkflow.sessionToken');
           state.token = '';
           state.user = null;
           renderLogin();
@@ -1244,18 +1297,41 @@
 
       async function showTask(taskId) {
         clearUploadPoll();
+        const detailEl = document.getElementById('task-detail');
+        if (detailEl) detailEl.innerHTML = `<div class="loading"><span class="eyebrow">Loading</span></div>`;
         const response = await requireOk(server('webTaskDetail', taskId, state.token));
         const data = response.data || {};
+        state.data.currentTaskDetail = data;
+        renderTaskDetail(data);
+      }
+
+      function renderTaskDetail(data) {
+        const task = data.task || {};
+        const detailEl = document.getElementById('task-detail');
+        if (!detailEl) return;
+        detailEl.innerHTML = taskDetailHtml(data);
+        bindTaskDetailActions();
+      }
+
+      function taskDetailHtml(data) {
         const task = data.task || {};
         const customer = data.customer && data.customer.sections || {};
         const identity = customer.identity || {};
         const status = customer.status || {};
         const owners = customer.owners || {};
+        const order3d = customer.order3d || {};
         const appointment = customer.currentAppointment && customer.currentAppointment.appointment || {};
-        document.getElementById('task-detail').innerHTML = `
+        const template = data.template || {};
+        const closed = isClosedTask(task);
+        const dueValue = task.SnoozedUntil || task.DueAt;
+        return `
           <div class="panel-header">
             <div class="eyebrow">${escapeHtml(task.TaskState || 'Task Detail')}</div>
-            <h3>${escapeHtml(taskTypeLabel(task.TaskType || taskId))}</h3>
+            <h3>${escapeHtml(taskTypeLabel(task.TaskType || task.TaskID))}</h3>
+            <div style="margin-top:8px">
+              <span class="badge">${escapeHtml(task.OwnerRole || 'Unassigned')}</span>
+              ${task.TemplateKey ? `<span class="badge">${escapeHtml(task.TemplateKey)}</span>` : ''}
+            </div>
           </div>
           <div class="detail-section">
             <div class="customer-hero">
@@ -1270,8 +1346,7 @@
               ${detailRow('Root', task.RootApptID)}
               ${detailRow('Appointment', [appointment.date, appointment.time, appointment.visitType].filter(Boolean).join(' | '))}
               ${detailRow('Owner', task.OwnerName || task.OwnerEmail || task.OwnerRole)}
-              ${detailRow('Due', fmtDate(task.DueAt))}
-              ${detailRow('Snoozed', fmtDate(task.SnoozedUntil))}
+              ${detailRow('Due', fmtDate(dueValue))}
               ${detailRow('Version', task.Version)}
             </div>
           </div>
@@ -1279,23 +1354,63 @@
             <div class="eyebrow">Customer State</div>
             <div class="detail-list" style="margin-top:12px">
               ${detailRow('Sales Stage', status.salesStage)}
-              ${detailRow('Conversion', status.conversionStatus)}
-              ${detailRow('Custom Order', status.customOrderStatus)}
+              ${detailRow('Next Steps', status.nextSteps)}
+              ${detailRow('3D Deadline', fmtDate(status.deadline3D))}
+              ${detailRow('SO Number', order3d.SONumber || order3d.soNumber)}
               ${detailRow('Advisor', owners.clientAdvisorName || owners.clientAdvisorEmail)}
               ${detailRow('JOC', owners.jocOwnerName || owners.jocOwnerEmail)}
             </div>
           </div>
+          ${taskTemplateHtml(template)}
+          ${taskCompletionHtml(data, closed)}
+          ${artifactUploadPanel(task.TaskID, task.RootApptID)}`;
+      }
+
+      function taskTemplateHtml(template) {
+        if (!template || !template.TemplateKey) return '';
+        return `
           <div class="detail-section">
-            <div class="eyebrow">Next Steps</div>
-            <div class="template-box" style="margin-top:12px">${escapeHtml(status.nextSteps || 'No next steps recorded.')}</div>
-          </div>
-          <div class="actions">
-            <button class="btn small" data-task-action="claim" data-id="${escapeAttr(task.TaskID)}" data-version="${escapeAttr(task.Version)}">Claim</button>
-            <button class="btn small" data-task-action="ack" data-id="${escapeAttr(task.TaskID)}" data-version="${escapeAttr(task.Version)}">Acknowledge</button>
-            <button class="btn small" data-task-action="snooze" data-id="${escapeAttr(task.TaskID)}" data-version="${escapeAttr(task.Version)}">Snooze</button>
+            <div class="eyebrow">Template</div>
+            <div class="detail-list" style="margin-top:12px">
+              ${detailRow('Subject', template.Subject)}
+              ${detailRow('Channel', template.Channel)}
+            </div>
+            ${template.Body ? `<div class="template-box" style="margin-top:12px">${escapeHtml(template.Body)}</div>` : ''}
           </div>`;
-        document.getElementById('task-detail').innerHTML += artifactUploadPanel(task.TaskID, task.RootApptID);
-        document.querySelectorAll('[data-task-action]').forEach(button => {
+      }
+
+      function taskCompletionHtml(data, closed) {
+        const task = data.task || {};
+        if (closed) {
+          return `<div class="detail-section"><div class="empty"><h3>Task closed</h3><p class="muted">Completed and canceled tasks cannot be completed again.</p></div></div>`;
+        }
+        const writeback = isWritebackTask(task.TaskType);
+        const actionLabel = writeback ? 'Complete' : 'Acknowledge';
+        return `
+          <div class="detail-section">
+            <div class="eyebrow">${writeback ? 'Completion' : 'Acknowledgement'}</div>
+            <form id="task-completion-form" class="task-form" data-task-type="${escapeAttr(task.TaskType || '')}" style="margin-top:12px">
+              ${writeback ? taskCompletionFieldsHtml(data) : '<div class="template-box">Acknowledge this task after the external work is done.</div>'}
+              <div id="task-form-message" class="form-message"></div>
+              <div class="actions">
+                <button class="btn small" type="button" data-task-action="claim" data-id="${escapeAttr(task.TaskID)}" data-version="${escapeAttr(task.Version)}">Claim</button>
+                <button class="btn small" type="button" data-task-action="snooze" data-id="${escapeAttr(task.TaskID)}" data-version="${escapeAttr(task.Version)}">Snooze</button>
+                <button class="btn primary small" type="submit" data-task-action="${writeback ? 'complete' : 'ack'}" data-id="${escapeAttr(task.TaskID)}" data-version="${escapeAttr(task.Version)}">${escapeHtml(actionLabel)}</button>
+              </div>
+            </form>
+          </div>`;
+      }
+
+      function bindTaskDetailActions() {
+        const form = document.getElementById('task-completion-form');
+        if (form) {
+          form.addEventListener('submit', event => {
+            event.preventDefault();
+            const button = form.querySelector('button[type="submit"]');
+            if (button) runTaskAction(button.dataset.taskAction, button.dataset.id, button.dataset.version);
+          });
+        }
+        document.querySelectorAll('#task-detail button[type="button"][data-task-action]').forEach(button => {
           button.addEventListener('click', () => runTaskAction(button.dataset.taskAction, button.dataset.id, button.dataset.version));
         });
         document.querySelectorAll('[data-artifact-action]').forEach(button => {
@@ -1304,14 +1419,265 @@
       }
 
       async function runTaskAction(action, taskId, version) {
-        setStatus('Saving task');
-        if (action === 'claim') await requireOk(server('webTaskClaim', taskId, Number(version), state.token));
-        if (action === 'ack') await requireOk(server('webTaskAcknowledge', taskId, Number(version), state.token));
-        if (action === 'snooze') {
-          const until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-          await requireOk(server('webTaskSnooze', taskId, until, 'Snoozed from dashboard', Number(version), state.token));
+        if (!taskId || state.busy) return;
+        setTaskSaving(true, 'Saving task');
+        try {
+          if (action === 'claim') await taskMutation('webTaskClaim', [taskId, Number(version), state.token], taskId);
+          if (action === 'ack') await taskMutation('webTaskAcknowledge', [taskId, Number(version), state.token], taskId);
+          if (action === 'complete') {
+            const payload = buildTaskCompletionPayload(state.data.currentTaskDetail || {});
+            await taskMutation('webTaskComplete', [taskId, payload, Number(version), state.token], taskId);
+          }
+          if (action === 'snooze') {
+            const until = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+            await taskMutation('webTaskSnooze', [taskId, until, 'Snoozed from dashboard', Number(version), state.token], taskId);
+          }
+          await loadTasks(state.data.taskView);
+          setStatus('Ready' + latestTimingLabel());
+        } catch (error) {
+          setTaskMessage(error.message, true);
+          setStatus(error.conflict ? 'Conflict' : 'Task update failed');
+        } finally {
+          setTaskSaving(false, '');
         }
-        await loadTasks(state.data.taskView);
+      }
+
+      function taskCompletionFieldsHtml(data) {
+        const task = data.task || {};
+        const customer = data.customer && data.customer.sections || {};
+        const status = customer.status || {};
+        const order3d = customer.order3d || {};
+        const stones = customer.diamondViewing && customer.diamondViewing.stones || [];
+        const payload = task.PayloadJson || {};
+        const type = task.TaskType || '';
+        if (type === 'POST_CONSULT_CLIENT_STATUS') {
+          return `<div class="field-grid">
+            ${selectField('SalesStage', 'Sales Stage', status.salesStage || 'Consult Complete', ['New Lead', 'Appointment Booked', 'Consult Complete', 'Quote Sent', 'Deposit Received', 'In Production', 'Complete', 'Lost'])}
+            ${inputField('NextSteps', 'Next Steps', status.nextSteps || '')}
+          </div>`;
+        }
+        if (type === 'START_3D_DESIGN') {
+          return `<div class="field-grid one">
+            ${inputField('SONumber', 'SO Number', order3d.SONumber || '')}
+            ${inputField('OdooUrl', 'Odoo URL', order3d.OdooUrl || order3d.odooUrl || '', 'url')}
+            ${textareaField('DesignRequest', 'Design Request', order3d.DesignRequest || '')}
+          </div>`;
+        }
+        if (type === 'RECORD_3D_DEADLINE') {
+          return `<div class="field-grid">
+            ${inputField('Deadline3D', '3D Deadline', dateInputValue(status.deadline3D), 'date')}
+            ${inputField('Deadline3DMoveReason', 'Move Reason', '')}
+          </div>`;
+        }
+        if (type === 'REQUEST_WAX_PRINT' || type === 'UPDATE_WAX_REQUEST') {
+          return `<div class="field-grid one">
+            ${inputField('RequestStatus', 'Request Status', type === 'REQUEST_WAX_PRINT' ? 'Requested' : '')}
+            ${inputField('AdminDeadline', 'Admin Deadline', '', 'date')}
+            ${inputField('RequestUrl', 'Request URL', '', 'url')}
+            ${textareaField('Notes', 'Notes', '')}
+          </div>`;
+        }
+        if (type === 'APPOINTMENT_DAY_CHECKLIST') {
+          return `<div class="field-grid">
+            ${selectField('Outcome', 'Outcome', 'completed', ['completed', 'no_show', 'canceled'])}
+            ${inputField('Notes', 'Notes', '')}
+          </div>`;
+        }
+        if (type === 'APPROVE_RECAP_MESSAGE' || type === 'SEND_FINAL_RECAP') {
+          return `<div class="field-grid one">
+            ${inputField('ArtifactID', 'Artifact ID', payload.artifactId || payload.ArtifactID || '')}
+            ${textareaField('Notes', 'Notes', '')}
+          </div>`;
+        }
+        if (type === 'PROPOSE_DIAMONDS') {
+          return `<div class="field-grid one">
+            ${stoneIdsField(type, stones)}
+            ${textareaField('Notes', 'Notes', '')}
+          </div>`;
+        }
+        if (type === 'ORDER_DIAMONDS') {
+          return `<div class="field-grid one">
+            ${stoneIdsField(type, stones)}
+            ${textareaField('Notes', 'Notes', '')}
+          </div>`;
+        }
+        if (type === 'TRACK_DIAMONDS') {
+          return `<div class="field-grid one">
+            ${stoneIdsField(type, stones)}
+            <div class="field-grid">
+              ${inputField('TrackingETA', 'Tracking ETA', '', 'datetime-local')}
+              ${inputField('TrackingStatus', 'Tracking Status', '')}
+              ${inputField('Carrier', 'Carrier', '')}
+              ${inputField('TrackingNumber', 'Tracking Number', '')}
+            </div>
+            ${inputField('TrackingUrl', 'Tracking URL', '', 'url')}
+            ${textareaField('Notes', 'Notes', '')}
+          </div>`;
+        }
+        if (type === 'CONFIRM_DIAMOND_DELIVERY') {
+          return `<div class="field-grid one">
+            ${stoneIdsField(type, stones)}
+            ${inputField('MemoDate', 'Memo Date', dateInputValue(new Date()), 'date')}
+            ${textareaField('Notes', 'Notes', '')}
+          </div>`;
+        }
+        if (type === 'RECORD_DIAMOND_DECISIONS') {
+          return `<div class="field-grid one">
+            ${textareaField('decisions', 'Decisions', suggestedStoneIds(type, stones).map(id => id + ': ').join('\n'))}
+          </div>`;
+        }
+        if (type === 'RETURN_DIAMONDS') {
+          return `<div class="field-grid one">
+            ${stoneIdsField(type, stones)}
+            ${textareaField('ReturnNotes', 'Return Notes', '')}
+          </div>`;
+        }
+        return '<div class="template-box">No writeback fields are configured for this task.</div>';
+      }
+
+      function buildTaskCompletionPayload(data) {
+        const task = data.task || {};
+        const type = task.TaskType || '';
+        if (type === 'POST_CONSULT_CLIENT_STATUS') return pickFields(['SalesStage', 'NextSteps']);
+        if (type === 'START_3D_DESIGN') return pickFields(['SONumber', 'OdooUrl', 'DesignRequest']);
+        if (type === 'RECORD_3D_DEADLINE') return pickFields(['Deadline3D', 'Deadline3DMoveReason']);
+        if (type === 'REQUEST_WAX_PRINT' || type === 'UPDATE_WAX_REQUEST') return pickFields(['RequestStatus', 'AdminDeadline', 'RequestUrl', 'Notes']);
+        if (type === 'APPOINTMENT_DAY_CHECKLIST') return pickFields(['Outcome', 'Notes']);
+        if (type === 'APPROVE_RECAP_MESSAGE' || type === 'SEND_FINAL_RECAP') return pickFields(['ArtifactID', 'Notes']);
+        if (type === 'PROPOSE_DIAMONDS') {
+          const stoneIds = parseTokenList(fieldValue('stoneIds'));
+          return Object.assign(pickFields(['Notes']), {
+            stoneIds,
+            stones: stoneIds.map(id => ({ CertNo: id }))
+          });
+        }
+        if (type === 'ORDER_DIAMONDS') return Object.assign(pickFields(['Notes']), { stoneIds: parseTokenList(fieldValue('stoneIds')) });
+        if (type === 'TRACK_DIAMONDS') return Object.assign(pickFields(['TrackingETA', 'TrackingStatus', 'Carrier', 'TrackingNumber', 'TrackingUrl', 'Notes']), { stoneIds: parseTokenList(fieldValue('stoneIds')) });
+        if (type === 'CONFIRM_DIAMOND_DELIVERY') return Object.assign(pickFields(['MemoDate', 'Notes']), { stoneIds: parseTokenList(fieldValue('stoneIds')) });
+        if (type === 'RECORD_DIAMOND_DECISIONS') return { decisions: parseDecisionLines(fieldValue('decisions')) };
+        if (type === 'RETURN_DIAMONDS') return Object.assign(pickFields(['ReturnNotes']), { stoneIds: parseTokenList(fieldValue('stoneIds')) });
+        return {};
+      }
+
+      function inputField(id, label, value, type) {
+        return `<label><span>${escapeHtml(label)}</span><input id="task-field-${escapeAttr(id)}" type="${escapeAttr(type || 'text')}" value="${escapeAttr(value || '')}"></label>`;
+      }
+
+      function textareaField(id, label, value) {
+        return `<label><span>${escapeHtml(label)}</span><textarea id="task-field-${escapeAttr(id)}">${escapeHtml(value || '')}</textarea></label>`;
+      }
+
+      function selectField(id, label, selected, values) {
+        return `<label><span>${escapeHtml(label)}</span><select id="task-field-${escapeAttr(id)}">${(values || []).map(value => option(value, value, selected || '')).join('')}</select></label>`;
+      }
+
+      function stoneIdsField(taskType, stones) {
+        const ids = suggestedStoneIds(taskType, stones);
+        const rows = ids.map(id => {
+          const stone = (stones || []).filter(row => stoneId(row) === id)[0] || {};
+          return [id, stone.Shape, stone.Carat ? stone.Carat + 'ct' : '', stone.OrderStatus || stone.ReturnStatus].filter(Boolean).join(' | ');
+        });
+        return `${textareaField('stoneIds', 'Stone IDs', ids.join('\n'))}${rows.length ? `<div class="template-box">${escapeHtml(rows.join('\n'))}</div>` : ''}`;
+      }
+
+      function pickFields(fields) {
+        return (fields || []).reduce((payload, field) => {
+          payload[field] = fieldValue(field);
+          return payload;
+        }, {});
+      }
+
+      function fieldValue(id) {
+        const element = document.getElementById('task-field-' + id);
+        return element ? String(element.value || '').trim() : '';
+      }
+
+      function parseTokenList(value) {
+        return String(value || '').split(/[\n,;]/).map(token => token.trim()).filter((token, index, all) => token && all.indexOf(token) === index);
+      }
+
+      function parseDecisionLines(value) {
+        return String(value || '').split(/\n/).map(line => line.trim()).filter(Boolean).map(line => {
+          const pipe = line.split('|').map(part => part.trim());
+          if (pipe.length >= 2) return { CertNo: pipe[0], Decision: pipe[1], Notes: pipe.slice(2).join(' | ') };
+          const colon = line.indexOf(':');
+          if (colon !== -1) return { CertNo: line.slice(0, colon).trim(), Decision: line.slice(colon + 1).trim() };
+          return { CertNo: line, Decision: '' };
+        }).filter(row => row.CertNo || row.Decision);
+      }
+
+      function suggestedStoneIds(taskType, stones) {
+        const rows = (stones || []).filter(row => {
+          if (taskType === 'ORDER_DIAMONDS') return row.OrderStatus === 'Proposing';
+          if (taskType === 'TRACK_DIAMONDS' || taskType === 'CONFIRM_DIAMOND_DELIVERY') return row.OrderStatus === 'On the Way';
+          if (taskType === 'RECORD_DIAMOND_DECISIONS') return row.OrderStatus === 'Delivered' || row.StoneStatus === 'In Stock';
+          if (taskType === 'RETURN_DIAMONDS') return row.ReturnStatus === 'Return Due' || row.ReturnStatus === 'Return Overdue' || isOverdue(row.ReturnDueDate);
+          return true;
+        });
+        const source = rows.length ? rows : stones || [];
+        return source.map(stoneId).filter(Boolean);
+      }
+
+      function stoneId(row) {
+        return row && (row.CertNo || row.StoneID || row.StoneId || row.stoneId) || '';
+      }
+
+      async function taskMutation(name, args, taskId, retried) {
+        const response = await server(name, ...args);
+        if (response && response.retry === true && !retried) {
+          setTaskMessage('Retrying after lock contention', false);
+          await delay(1000);
+          return taskMutation(name, args, taskId, true);
+        }
+        if (response && response.conflict === true) {
+          setTaskMessage('Task changed. Reloading latest detail.', true);
+          setStatus('Conflict');
+          await showTask(taskId);
+          const error = new Error(errorMessage(response));
+          error.conflict = true;
+          throw error;
+        }
+        if (!response || !response.ok) {
+          throw new Error(errorMessage(response));
+        }
+        return response;
+      }
+
+      function setTaskSaving(value, message) {
+        state.busy = Boolean(value);
+        if (message) {
+          setStatus(message);
+          setTaskMessage(message, false);
+        }
+        document.querySelectorAll('#task-detail button').forEach(button => {
+          button.disabled = Boolean(value);
+        });
+      }
+
+      function setTaskMessage(message, isError) {
+        const element = document.getElementById('task-form-message');
+        if (!element) return;
+        element.textContent = message || '';
+        element.classList.toggle('error', Boolean(isError));
+      }
+
+      function isWritebackTask(taskType) {
+        return WRITEBACK_TASK_TYPES.indexOf(taskType) !== -1;
+      }
+
+      function isClosedTask(task) {
+        return ['Completed', 'Canceled'].indexOf(task && task.TaskState) !== -1;
+      }
+
+      function dateInputValue(value) {
+        if (!value) return '';
+        const date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
+      }
+
+      function delay(ms) {
+        return new Promise(resolve => window.setTimeout(resolve, ms));
       }
 
       function artifactUploadPanel(taskId, rootId) {

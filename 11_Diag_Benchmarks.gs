@@ -78,7 +78,7 @@ function benchmarksRun_() {
   return {
     ok: failures.length === 0,
     implemented: true,
-    phase: 5,
+    phase: 6,
     totalMs: Date.now() - suiteStarted,
     baselineAt: new Date().toISOString(),
     slowestStep: metrics.length ? metrics[0] : null,

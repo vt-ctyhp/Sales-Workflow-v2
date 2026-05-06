@@ -196,7 +196,9 @@ function apiTestsHappyPaths_(suite) {
   apiTestCall_(suite, 'Api.bootstrap.get happy path', function() {
     return ApiBootstrap.get(admin);
   }, function(result) {
-    return result.ok && result.data.user.email === ctx.adminEmail && result.data.visibleViews.indexOf('admin') !== -1;
+    return result.ok && result.data.user.email === ctx.adminEmail &&
+      result.data.visibleViews.indexOf('adminReview') !== -1 &&
+      result.data.visibleViews.indexOf('manageUsers') !== -1;
   });
   apiTestCall_(suite, 'Api.tasks.list happy path', function() {
     return ApiTasks.list({ view: 'admin', includeCompleted: true }, admin);

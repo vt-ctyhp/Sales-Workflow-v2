@@ -39,8 +39,14 @@ function taskListNormalizeView_(view) {
     view: 'mine',
     ownerEmail: '',
     ownerRole: '',
+    ownerRoles: [],
     includeCompleted: false,
   }, view || {});
+  if (!Array.isArray(normalized.ownerRoles)) {
+    normalized.ownerRoles = String(normalized.ownerRoles || '').split(/[,\n;]/).map(function(role) {
+      return role.trim();
+    }).filter(Boolean);
+  }
   if (normalized.ownerEmail) {
     normalized.ownerEmail = normalizeEmail_(normalized.ownerEmail);
   } else if (normalized.view === 'mine') {
@@ -54,7 +60,13 @@ function taskListMatchesView_(task, view) {
     return false;
   }
   if (view.view === 'mine') {
-    return !view.ownerEmail || normalizeEmail_(task.OwnerEmail) === view.ownerEmail;
+    if (view.ownerEmail && normalizeEmail_(task.OwnerEmail) === view.ownerEmail) {
+      return true;
+    }
+    if (!normalizeEmail_(task.OwnerEmail) && task.OwnerRole && (view.ownerRoles || []).indexOf(task.OwnerRole) !== -1) {
+      return true;
+    }
+    return !normalizeEmail_(task.OwnerEmail) && task.TaskType === TASK_TYPE.RETURN_DIAMONDS && (view.ownerRoles || []).indexOf(ROLE.DIAMOND_ORDER_ADMIN) !== -1;
   }
   if (view.view === 'cleanup') {
     return String(task.TaskType || '').indexOf('CUSTOMER_DATA_CLEANUP') === 0;

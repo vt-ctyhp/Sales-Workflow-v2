@@ -1,6 +1,6 @@
 const TriggerTaskGen = Object.freeze({
   taskGen: function() {
-    return phaseNotImplemented_('Trigger.taskGen');
+    return TaskGen.runTick(TASK_GEN_TRIGGER_BATCH_SIZE);
   },
   cachePrewarm: function() {
     return CacheSlices.prewarm();
@@ -8,9 +8,9 @@ const TriggerTaskGen = Object.freeze({
 });
 
 function triggerTaskGen() {
-  return TriggerTaskGen.taskGen();
+  return executionSafeResponse_(TriggerTaskGen.taskGen());
 }
 
 function triggerCachePrewarm() {
-  return TriggerTaskGen.cachePrewarm();
+  return executionSafeResponse_(TriggerTaskGen.cachePrewarm());
 }

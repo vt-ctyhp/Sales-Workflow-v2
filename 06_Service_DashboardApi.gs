@@ -127,6 +127,19 @@ function dashboardTaskUpdate_(taskId, fields, version, eventType, notes, metadat
       return taskRead;
     }
     var task = taskRead.data;
+    if (!Tasks.canActOn(task, actor)) {
+      return serviceError_([TASK_STATE.COMPLETED, TASK_STATE.CANCELED].indexOf(task.TaskState) !== -1 ? 'task_closed' : 'forbidden', {
+        taskId: taskId,
+        taskType: task.TaskType || '',
+        taskState: task.TaskState || '',
+      });
+    }
+    if (eventType === 'ACKNOWLEDGE' && dashboardTaskRequiresCompletion_(task.TaskType)) {
+      return serviceError_('completion_required', {
+        taskId: taskId,
+        taskType: task.TaskType || '',
+      });
+    }
     var updated = repoUpdateByKey_('TaskQueue', taskId, fields || {}, version, 'TaskID');
     if (!updated.ok) {
       return updated;
@@ -150,6 +163,25 @@ function dashboardTaskUpdate_(taskId, fields, version, eventType, notes, metadat
       CACHE_SLICE.CUSTOMER_ROOT_DETAIL,
     ]));
   }, actor);
+}
+
+function dashboardTaskRequiresCompletion_(taskType) {
+  return [
+    TASK_TYPE.POST_CONSULT_CLIENT_STATUS,
+    TASK_TYPE.START_3D_DESIGN,
+    TASK_TYPE.RECORD_3D_DEADLINE,
+    TASK_TYPE.REQUEST_WAX_PRINT,
+    TASK_TYPE.UPDATE_WAX_REQUEST,
+    TASK_TYPE.APPOINTMENT_DAY_CHECKLIST,
+    TASK_TYPE.APPROVE_RECAP_MESSAGE,
+    TASK_TYPE.SEND_FINAL_RECAP,
+    TASK_TYPE.PROPOSE_DIAMONDS,
+    TASK_TYPE.ORDER_DIAMONDS,
+    TASK_TYPE.TRACK_DIAMONDS,
+    TASK_TYPE.CONFIRM_DIAMOND_DELIVERY,
+    TASK_TYPE.RECORD_DIAMOND_DECISIONS,
+    TASK_TYPE.RETURN_DIAMONDS,
+  ].indexOf(taskType) !== -1;
 }
 
 function dashboardTaskLogTemplateCopied_(taskId, actor) {
@@ -386,20 +418,10 @@ function dashboardAdminReassignTask_(taskId, toUser, version, actor) {
 }
 
 function dashboardSchedulesDeleteChange_(id, actor) {
-  return dashboardUserWrite_('DashboardService.schedulesDeleteChange', id, function() {
-    var ctx = repoContext_('ScheduleChanges');
-    var found = repoFindRowByFields_(ctx, {
-      ScheduleChangeID: id,
-    });
-    if (!found) {
-      return repoNotFoundResponse_(Date.now());
-    }
-    ctx.sheet.deleteRow(found.rowNumber);
-    return serviceOk_({
-      scheduleChangeId: id,
-      deleted: true,
-    }, null, [CACHE_SLICE.FORM_OPTIONS, CACHE_SLICE.TASK_LIST]);
-  }, actor);
+  return serviceError_('append_only_delete_disabled', {
+    scheduleChangeId: id || '',
+    message: 'Schedule changes are append-only. Add a reversing availability change instead of deleting the row.',
+  });
 }
 
 function dashboardUsersUpsert_(user, actor) {
@@ -475,7 +497,7 @@ function dashboardLogApiOperation_(apiName, actorEmail, result, options, started
       Result: result && result.ok ? 'ok' : 'error',
       Message: result && result.ok ? 'API mutation completed' : (result && result.reason || 'API mutation failed'),
       LockWaitMs: result && result.lockWaitMs || '',
-      LockHoldMs: '',
+      LockHoldMs: result && result.lockHoldMs || '',
       Target: options.target || '',
       ActorEmail: actorEmail || '',
       MetadataJson: {
@@ -483,6 +505,7 @@ function dashboardLogApiOperation_(apiName, actorEmail, result, options, started
         ageMs: Date.now() - (started || Date.now()),
         reason: result && result.reason || '',
         version: result && result.version || null,
+        invalidated: result && result.invalidated || [],
       },
     });
   } catch (err) {

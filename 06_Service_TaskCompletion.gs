@@ -1,14 +1,35 @@
 const TaskCompletion = Object.freeze({
-  complete: function(taskId, payload, version) {
-    return taskCompletionComplete_(taskId, payload || {}, version);
+  complete: function(taskId, payload, version, actor) {
+    return taskCompletionComplete_(taskId, payload || {}, version, actor);
   },
 });
 
-function taskCompletionComplete_(taskId, payload, version) {
-  return DocLock.withUserWriteLock(function() {
+function taskCompletionComplete_(taskId, payload, version, actor) {
+  var preflight = Tasks.get(taskId);
+  if (!preflight.ok) {
+    return preflight;
+  }
+  var preflightAccess = taskCompletionCanActResponse_(preflight.data, actor);
+  if (!preflightAccess.ok) {
+    return preflightAccess;
+  }
+  var preflightValidation = taskCompletionValidate_(preflight.data, payload);
+  if (!preflightValidation.ok) {
+    return preflightValidation;
+  }
+  var locked = DocLock.withUserWriteLock(function() {
     var taskRead = Tasks.get(taskId);
     if (!taskRead.ok) {
       return taskRead;
+    }
+    var task = taskRead.data;
+    var access = taskCompletionCanActResponse_(task, actor);
+    if (!access.ok) {
+      return access;
+    }
+    var validation = taskCompletionValidate_(task, payload);
+    if (!validation.ok) {
+      return validation;
     }
     if (version !== undefined && version !== null && Number(version) !== Number(taskRead.version || 0)) {
       return {
@@ -21,7 +42,6 @@ function taskCompletionComplete_(taskId, payload, version) {
         ageMs: 0,
       };
     }
-    var task = taskRead.data;
     var dispatch = taskCompletionDispatch_(task, payload);
     if (!dispatch.ok) {
       return dispatch;
@@ -30,13 +50,13 @@ function taskCompletionComplete_(taskId, payload, version) {
       PayloadJson: mergeObjects_(task.PayloadJson || {}, {
         completionPayload: payload,
       }),
-    }, taskRead.version);
+    }, taskRead.version, actor);
     if (!completed.ok) {
       return completed;
     }
-    var log = serviceTaskLog_(task, 'COMPLETE', task.TaskState, TASK_STATE.COMPLETED, payload.notes || '', {
+    var log = serviceTaskLog_(task, 'COMPLETE', task.TaskState, TASK_STATE.COMPLETED, payload.Notes || payload.notes || '', {
       dispatch: dispatch.data,
-    });
+    }, actor);
     return serviceOk_({
       task: completed.data,
       dispatch: dispatch.data,
@@ -46,6 +66,165 @@ function taskCompletionComplete_(taskId, payload, version) {
     functionName: 'TaskCompletion.complete',
     target: taskId,
   });
+  return taskCompletionRunPostCommit_(locked);
+}
+
+function taskCompletionCanActResponse_(task, actor) {
+  if (Tasks.canActOn(task, actor)) {
+    return serviceOk_({ canAct: true }, task && task.Version || null, []);
+  }
+  var closed = task && [TASK_STATE.COMPLETED, TASK_STATE.CANCELED].indexOf(task.TaskState) !== -1;
+  return {
+    ok: false,
+    reason: closed ? 'task_closed' : 'forbidden',
+    error: {
+      code: closed ? 'TASK_CLOSED' : 'FORBIDDEN',
+      message: closed ? 'This task is already completed or canceled.' : 'This user cannot complete this task.',
+    },
+    detail: {
+      taskId: task && task.TaskID || '',
+      taskType: task && task.TaskType || '',
+      taskState: task && task.TaskState || '',
+      ownerEmail: task && task.OwnerEmail || '',
+      ownerRole: task && task.OwnerRole || '',
+      actorEmail: actor && actor.email || '',
+      actorRoles: actor && actor.roles || [],
+    },
+    source: 'service',
+    ageMs: 0,
+  };
+}
+
+function taskCompletionValidate_(task, payload) {
+  var type = task && task.TaskType || '';
+  var required = [];
+  if (type === TASK_TYPE.POST_CONSULT_CLIENT_STATUS) {
+    required = taskCompletionMissingFields_(payload, ['SalesStage']);
+  } else if (type === TASK_TYPE.START_3D_DESIGN) {
+    required = taskCompletionMissingFields_(payload, ['SONumber', 'OdooUrl']);
+  } else if (type === TASK_TYPE.RECORD_3D_DEADLINE) {
+    required = taskCompletionMissingFields_(payload, ['Deadline3D']);
+  } else if (type === TASK_TYPE.REQUEST_WAX_PRINT) {
+    required = taskCompletionMissingFields_(payload, ['RequestStatus', 'AdminDeadline']);
+  } else if (type === TASK_TYPE.UPDATE_WAX_REQUEST) {
+    required = taskCompletionMissingFields_(payload, ['RequestStatus']);
+  } else if (type === TASK_TYPE.APPOINTMENT_DAY_CHECKLIST) {
+    required = taskCompletionMissingAny_(payload, ['Outcome', 'artifactRequirements', 'requirements']);
+  } else if (type === TASK_TYPE.APPROVE_RECAP_MESSAGE || type === TASK_TYPE.SEND_FINAL_RECAP) {
+    required = taskCompletionMissingArtifact_(task, payload);
+  } else if (type === TASK_TYPE.PROPOSE_DIAMONDS) {
+    required = taskCompletionArrayLength_(payload.stones) || taskCompletionStoneIds_(payload).length ? [] : ['stoneIds'];
+  } else if (type === TASK_TYPE.ORDER_DIAMONDS) {
+    required = taskCompletionStoneIds_(payload).length ? [] : ['stoneIds'];
+  } else if (type === TASK_TYPE.TRACK_DIAMONDS) {
+    required = taskCompletionStoneIds_(payload).length ? taskCompletionMissingAny_(payload, ['TrackingETA', 'TrackingStatus', 'Carrier', 'TrackingNumber', 'TrackingUrl']) : ['stoneIds'];
+  } else if (type === TASK_TYPE.CONFIRM_DIAMOND_DELIVERY) {
+    required = taskCompletionStoneIds_(payload).length ? taskCompletionMissingFields_(payload, ['MemoDate']) : ['stoneIds'];
+  } else if (type === TASK_TYPE.RECORD_DIAMOND_DECISIONS) {
+    required = taskCompletionValidDecisions_(payload.decisions) ? [] : ['decisions'];
+  } else if (type === TASK_TYPE.RETURN_DIAMONDS) {
+    required = taskCompletionStoneIds_(payload).length ? [] : ['stoneIds'];
+  }
+  if (!required.length) {
+    return serviceOk_({ valid: true }, null, []);
+  }
+  return {
+    ok: false,
+    reason: 'validation_failed',
+    error: {
+      code: 'VALIDATION_FAILED',
+      message: 'Missing required completion field' + (required.length === 1 ? '' : 's') + ': ' + required.join(', '),
+    },
+    detail: {
+      taskId: task && task.TaskID || '',
+      taskType: type,
+      missing: required,
+    },
+    source: 'service',
+    ageMs: 0,
+  };
+}
+
+function taskCompletionMissingFields_(payload, fields) {
+  return (fields || []).filter(function(field) {
+    return !taskCompletionHasValue_(taskCompletionPayloadValue_(payload, field));
+  });
+}
+
+function taskCompletionMissingAny_(payload, fields) {
+  return (fields || []).some(function(field) {
+    return taskCompletionHasValue_(taskCompletionPayloadValue_(payload, field));
+  }) ? [] : fields || [];
+}
+
+function taskCompletionMissingArtifact_(task, payload) {
+  if (taskCompletionHasValue_(taskCompletionPayloadValue_(payload, 'ArtifactID')) || task && task.PayloadJson && task.PayloadJson.artifactId) {
+    return [];
+  }
+  return ['ArtifactID'];
+}
+
+function taskCompletionStoneIds_(payload) {
+  var ids = payload && (payload.stoneIds || payload.StoneIDs || payload.certNos || payload.CertNos) || [];
+  if (!Array.isArray(ids)) {
+    ids = [ids];
+  }
+  return ids.filter(function(id) {
+    return taskCompletionHasValue_(id);
+  });
+}
+
+function taskCompletionArrayLength_(value) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function taskCompletionValidDecisions_(decisions) {
+  return Array.isArray(decisions) && decisions.some(function(decision) {
+    return taskCompletionHasValue_(decision && (decision.CertNo || decision.StoneID || decision.stoneId || decision.certNo)) &&
+      taskCompletionHasValue_(decision && (decision.Decision || decision.decision));
+  });
+}
+
+function taskCompletionHasValue_(value) {
+  if (Array.isArray(value)) {
+    return value.filter(taskCompletionHasValue_).length > 0;
+  }
+  return value !== undefined && value !== null && String(value).trim() !== '';
+}
+
+function taskCompletionPayloadValue_(payload, field) {
+  var aliases = {
+    SalesStage: ['SalesStage', 'salesStage'],
+    NextSteps: ['NextSteps', 'nextSteps'],
+    SONumber: ['SONumber', 'soNumber'],
+    OdooUrl: ['OdooUrl', 'odooUrl'],
+    DesignRequest: ['DesignRequest', 'designRequest'],
+    Deadline3D: ['Deadline3D', 'deadline3D'],
+    Deadline3DMoveReason: ['Deadline3DMoveReason', 'reason'],
+    RequestStatus: ['RequestStatus', 'requestStatus'],
+    AdminDeadline: ['AdminDeadline', 'adminDeadline'],
+    RequestUrl: ['RequestUrl', 'requestUrl'],
+    Notes: ['Notes', 'notes'],
+    Outcome: ['Outcome', 'outcome'],
+    ArtifactID: ['ArtifactID', 'artifactId'],
+    TrackingETA: ['TrackingETA', 'eta', 'ETA'],
+    TrackingStatus: ['TrackingStatus', 'trackingStatus', 'status'],
+    Carrier: ['Carrier', 'carrier'],
+    TrackingNumber: ['TrackingNumber', 'trackingNumber'],
+    TrackingUrl: ['TrackingUrl', 'trackingUrl', 'url'],
+    MemoDate: ['MemoDate', 'memoDate'],
+    ReturnNotes: ['ReturnNotes', 'notes'],
+  };
+  var names = aliases[field] || [field];
+  for (var i = 0; i < names.length; i += 1) {
+    if (payload && payload[names[i]] !== undefined) {
+      return payload[names[i]];
+    }
+    if (payload && payload.fields && payload.fields[names[i]] !== undefined) {
+      return payload.fields[names[i]];
+    }
+  }
+  return undefined;
 }
 
 function taskCompletionDispatch_(task, payload) {
@@ -147,7 +326,7 @@ function taskCompletionDeadline_(task, payload) {
     Deadline3D: payload.Deadline3D || payload.deadline3D,
     Deadline3DOriginal: status.data.Deadline3DOriginal || payload.Deadline3D || payload.deadline3D,
     Deadline3DMoveCount: Number(status.data.Deadline3DMoveCount || 0) + 1,
-    Deadline3DMoveReason: payload.reason || payload.Deadline3DMoveReason || 'Task completion',
+    Deadline3DMoveReason: payload.Deadline3DMoveReason || payload.reason || 'Task completion',
   }, payload.statusVersion || status.version);
   return updated.ok ? serviceOk_(updated.data, updated.version, updated.invalidated) : updated;
 }
@@ -159,7 +338,7 @@ function taskCompletionRequestWax_(task, payload) {
     AdminDeadline: payload.AdminDeadline || payload.adminDeadline || '',
     RequestUrl: payload.RequestUrl || payload.requestUrl || '',
     RequestedAt: new Date(),
-    Notes: payload.notes || '',
+    Notes: payload.Notes || payload.notes || '',
   });
   return created.ok ? serviceOk_(created.data, created.version, created.invalidated) : created;
 }
@@ -174,7 +353,7 @@ function taskCompletionUpdateWax_(task, payload) {
     RequestStatus: payload.RequestStatus || payload.requestStatus || current.data.RequestStatus,
     AdminDeadline: payload.AdminDeadline || payload.adminDeadline || current.data.AdminDeadline,
     RequestUrl: payload.RequestUrl || payload.requestUrl || current.data.RequestUrl,
-    Notes: payload.notes || current.data.Notes || '',
+    Notes: payload.Notes || payload.notes || current.data.Notes || '',
   }, payload.waxVersion || current.version);
   return updated.ok ? serviceOk_(updated.data, updated.version, updated.invalidated) : updated;
 }
@@ -225,9 +404,13 @@ function taskCompletionFinalRecap_(task, payload) {
 }
 
 function taskCompletionDiamond_(task, payload) {
-  var stoneIds = payload.stoneIds || payload.StoneIDs || payload.certNos || payload.CertNos || [];
+  var stoneIds = taskCompletionStoneIds_(payload);
   if (task.TaskType === TASK_TYPE.PROPOSE_DIAMONDS) {
-    return DiamondService.submitProposal(task.RootApptID, payload, payload.diamondViewingVersion || null);
+    return DiamondService.submitProposal(task.RootApptID, mergeObjects_(payload, {
+      stones: payload.stones || taskCompletionStoneIds_(payload).map(function(stoneId) {
+        return { CertNo: stoneId };
+      }),
+    }), payload.diamondViewingVersion || null);
   }
   if (task.TaskType === TASK_TYPE.ORDER_DIAMONDS) {
     return DiamondService.submitOrderApproval(stoneIds, mergeObjects_(payload.fields || {}, {
@@ -236,15 +419,16 @@ function taskCompletionDiamond_(task, payload) {
   }
   if (task.TaskType === TASK_TYPE.TRACK_DIAMONDS) {
     var tracking = Stones.updateTracking(stoneIds, payload.fields || payload);
-    var trackerLog = Tracker.appendLog(task.RootApptID, {
-      EventType: TASK_TYPE.TRACK_DIAMONDS,
-      Notes: payload.notes || '',
-      StoneIDs: stoneIds.join(','),
-    });
     return tracking.ok ? serviceOk_({
       stones: tracking.data,
-      tracker: trackerLog.ok ? trackerLog.data : null,
-    }, tracking.version, serviceCollectInvalidations_(tracking, trackerLog)) : tracking;
+      tracker: null,
+      trackerLogPending: {
+        rootApptId: task.RootApptID,
+        eventType: TASK_TYPE.TRACK_DIAMONDS,
+        notes: payload.Notes || payload.notes || '',
+        stoneIds: stoneIds,
+      },
+    }, tracking.version, serviceCollectInvalidations_(tracking)) : tracking;
   }
   if (task.TaskType === TASK_TYPE.CONFIRM_DIAMOND_DELIVERY) {
     return Stones.markDelivered(stoneIds, payload.fields || payload);
@@ -253,12 +437,34 @@ function taskCompletionDiamond_(task, payload) {
     return Stones.recordDecisions(task.RootApptID, payload.decisions || []);
   }
   if (task.TaskType === TASK_TYPE.RETURN_DIAMONDS) {
-    return Stones.markReturnInProgress(stoneIds, payload.notes || payload.ReturnNotes || '');
+    return Stones.markReturnInProgress(stoneIds, payload.ReturnNotes || payload.notes || '');
   }
   return serviceOk_({
     taskType: task.TaskType,
     acknowledged: true,
   }, null, []);
+}
+
+function taskCompletionRunPostCommit_(result) {
+  if (!result || !result.ok || !result.data || !result.data.dispatch || !result.data.dispatch.trackerLogPending) {
+    return result;
+  }
+  var pending = result.data.dispatch.trackerLogPending;
+  try {
+    var trackerLog = Tracker.appendLog(pending.rootApptId, {
+      EventType: pending.eventType,
+      Notes: pending.notes || '',
+      StoneIDs: (pending.stoneIds || []).join(','),
+    });
+    result.data.dispatch.tracker = trackerLog.ok ? trackerLog.data : null;
+    if (!trackerLog.ok) {
+      result.data.dispatch.trackerWarning = trackerLog.reason || 'tracker_log_failed';
+    }
+  } catch (err) {
+    result.data.dispatch.trackerWarning = err.message || String(err);
+  }
+  delete result.data.dispatch.trackerLogPending;
+  return result;
 }
 
 function taskCompletionArtifactRequirements_(task, payload) {

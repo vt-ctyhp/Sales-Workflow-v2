@@ -8,6 +8,9 @@ const ApiTasks = Object.freeze({
       if (normalizedView.view === 'mine' && !normalizedView.ownerEmail) {
         normalizedView.ownerEmail = user.email;
       }
+      if (normalizedView.view === 'mine' && !normalizedView.ownerRoles) {
+        normalizedView.ownerRoles = user.roles || [];
+      }
       return TaskListCache.build(normalizedView);
     });
   },
@@ -17,8 +20,8 @@ const ApiTasks = Object.freeze({
     }, { target: taskId });
   },
   complete: function(taskId, payload, version, context) {
-    return apiCall_('Api.tasks.complete', context, function() {
-      return TaskCompletion.complete(taskId, payload || {}, version);
+    return apiCall_('Api.tasks.complete', context, function(user) {
+      return TaskCompletion.complete(taskId, payload || {}, version, user);
     }, { target: taskId });
   },
   snooze: function(taskId, until, reason, version, context) {

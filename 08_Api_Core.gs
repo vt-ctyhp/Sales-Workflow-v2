@@ -12,7 +12,7 @@ function apiCall_(apiName, context, handler, options) {
       stack: err.stack || '',
     }, started);
   }
-  var normalized = apiNormalizeResult_(apiName, result, started);
+  var normalized = apiConsumeInvalidations_(apiName, apiNormalizeResult_(apiName, result, started), auth.user, options || {});
   DashboardService.logApiOperation(apiName, auth.user.email, normalized, options || {}, started);
   return normalized;
 }
@@ -74,8 +74,37 @@ function apiNormalizeResult_(apiName, result, started) {
   };
 }
 
+function apiConsumeInvalidations_(apiName, result, user, options) {
+  if (!result || result.ok !== true || !result.invalidated || !dashboardIsWriteApi_(apiName)) {
+    return result;
+  }
+  var invalidated = cacheNormalizeInvalidations_(result.invalidated);
+  if (!invalidated.length) {
+    return result;
+  }
+  try {
+    var consumed = CacheSlices.invalidate(invalidated, {
+      apiName: apiName,
+      actorEmail: user && user.email || '',
+      target: options && options.target || '',
+    });
+    return mergeObjects_(result, {
+      invalidated: invalidated,
+      cacheInvalidation: consumed,
+    });
+  } catch (err) {
+    return mergeObjects_(result, {
+      cacheInvalidation: {
+        ok: false,
+        reason: 'cache_invalidation_failed',
+        error: err.message,
+      },
+    });
+  }
+}
+
 function apiError_(apiName, reason, message, detail, started) {
-  return {
+  var error = {
     ok: false,
     reason: reason,
     error: {
@@ -87,6 +116,14 @@ function apiError_(apiName, reason, message, detail, started) {
     apiName: apiName,
     ageMs: Date.now() - (started || Date.now()),
   };
+  if (detail) {
+    ['conflict', 'latest', 'retry', 'version', 'lockWaitMs', 'lockHoldMs'].forEach(function(key) {
+      if (detail[key] !== undefined) {
+        error[key] = detail[key];
+      }
+    });
+  }
+  return error;
 }
 
 function apiSessionTokenFromContext_(context) {
@@ -140,6 +177,7 @@ function apiBootstrapPayload_(user) {
   var taskView = {
     view: 'mine',
     ownerEmail: user.email,
+    ownerRoles: user.roles || [],
   };
   var tasks = TaskListCache.build(taskView);
   var options = CacheSlices.formOptions();
@@ -155,20 +193,31 @@ function apiBootstrapPayload_(user) {
 function apiVisibleViews_(roles) {
   var views = [];
   if (apiHasAnyRole_(roles, [ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT])) {
-    views.push('tasks');
+    views.push('myQueue');
   }
   if (apiHasAnyRole_(roles, [ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC, ROLE.READ_ONLY_VIEWER])) {
-    views.push('customers');
     views.push('calendar');
+    views.push('customerSearch');
   }
-  if (apiHasAnyRole_(roles, [ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT, ROLE.CLIENT_ADVISOR, ROLE.JOC])) {
-    views.push('diamonds');
+  if (apiHasAnyRole_(roles, [ROLE.ADMIN, ROLE.JOC])) {
+    views.push('jocCoverage');
   }
   if (apiHasAnyRole_(roles, [ROLE.ADMIN, ROLE.CLIENT_ADVISOR, ROLE.JOC])) {
+    views.push('customerPipeline');
     views.push('payments');
   }
+  if (apiHasAnyRole_(roles, [ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN, ROLE.DIAMOND_ORDER_ASSISTANT])) {
+    views.push('diamondInventory');
+    views.push('diamondTracking');
+  }
+  if (apiHasAnyRole_(roles, [ROLE.ADMIN, ROLE.DIAMOND_ORDER_ADMIN])) {
+    views.push('bulkReturns');
+  }
   if (roles.indexOf(ROLE.ADMIN) !== -1) {
-    views.push('admin');
+    views.push('schedules');
+    views.push('adminReview');
+    views.push('manageUsers');
+    views.push('cleanup');
     views.push('diagnostics');
   }
   return views.filter(function(view, index, all) {

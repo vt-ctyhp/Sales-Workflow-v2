@@ -438,6 +438,7 @@ function serviceTestsDiamonds_(suite) {
 
 function serviceTestsTaskCompletion_(suite) {
   var ctx = suite.ctx;
+  var actor = { email: ctx.userEmail, roles: [ROLE.CLIENT_ADVISOR] };
   serviceTestsSeedCustomerBundle_(suite);
   serviceTestCall_(suite, 'TaskCompletion status task dispatches and completes', function() {
     var task = Tasks.upsert(mergeObjects_(repoTestTask_(ctx), {
@@ -446,7 +447,7 @@ function serviceTestsTaskCompletion_(suite) {
     }));
     return TaskCompletion.complete(task.data.TaskID, {
       SalesStage: SALES_STAGE.CONSULT_COMPLETE,
-    }, task.version);
+    }, task.version, actor);
   }, function(result) {
     return result.ok && result.data.task.TaskState === TASK_STATE.COMPLETED;
   });
@@ -458,7 +459,7 @@ function serviceTestsTaskCompletion_(suite) {
     }));
     return TaskCompletion.complete(task.data.TaskID, {
       stoneIds: ['task_stone_' + ctx.suffix],
-    }, task.version);
+    }, task.version, actor);
   }, function(result) {
     return result.ok && result.data.task.TaskState === TASK_STATE.COMPLETED;
   });
@@ -470,7 +471,7 @@ function serviceTestsTaskCompletion_(suite) {
     }));
     var completed = TaskCompletion.complete(task.data.TaskID, {
       artifactRequirements: ['recording'],
-    }, task.version);
+    }, task.version, actor);
     var artifacts = Artifacts.getByRoot(ctx.rootId);
     return {
       ok: completed.ok && artifacts.ok,
