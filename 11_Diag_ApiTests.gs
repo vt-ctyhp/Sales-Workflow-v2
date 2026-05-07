@@ -54,6 +54,7 @@ function apiTestsSeed_(suite) {
     PasswordHash: AuthService.hashPassword(ctx.adminPassword, ctx.adminSalt),
   });
   Users.upsert(repoTestUser_(ctx));
+  diagSeedPaymentTemplateIds_(ctx.suffix);
   ConfigRepo.set('payments', 'drive.parent.ar.hpusa', 'api_ar_parent_hpusa_' + ctx.suffix);
   ConfigRepo.set('payments', 'drive.parent.ar.vvs', 'api_ar_parent_vvs_' + ctx.suffix);
 
@@ -358,10 +359,10 @@ function apiTestsHappyPaths_(suite) {
   }, function(result) {
     return result.ok && result.data.ScheduleChangeID === ctx.scheduleChangeId;
   });
-  apiTestCall_(suite, 'Api.schedules.deleteChange happy path', function() {
+  apiTestCall_(suite, 'Api.schedules.deleteChange returns append-only guard', function() {
     return ApiSchedules.deleteChange(ctx.scheduleChangeId, admin);
   }, function(result) {
-    return result.ok && result.data.deleted === true;
+    return !result.ok && result.reason === 'append_only_delete_disabled';
   });
   apiTestCall_(suite, 'Api.users.list happy path', function() {
     return ApiUsers.list(admin);

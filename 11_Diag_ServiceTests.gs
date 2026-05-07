@@ -177,6 +177,7 @@ function serviceTestsAdapters_(suite) {
 function serviceTestsPayments_(suite) {
   var ctx = suite.ctx;
   serviceTestsSeedCustomerBundle_(suite);
+  diagSeedPaymentTemplateIds_(ctx.suffix);
   ConfigRepo.set('payments', 'drive.parent.ar.hpusa', 'ar_parent_hpusa_' + ctx.suffix);
   ConfigRepo.set('payments', 'drive.parent.ar.vvs', 'ar_parent_vvs_' + ctx.suffix);
   serviceTestCall_(suite, 'PaymentService.init reads customer and ledger context', function() {
@@ -602,4 +603,23 @@ function serviceTestsLogResult_(result) {
       };
     }),
   }));
+}
+
+function diagSeedPaymentTemplateIds_(suffix) {
+  [
+    'HPUSA_DI_TEMPLATE_ID',
+    'HPUSA_DR_TEMPLATE_ID',
+    'HPUSA_SI_TEMPLATE_ID',
+    'HPUSA_SR_TEMPLATE_ID',
+    'VVS_DI_TAX_TEMPLATE_ID',
+    'VVS_DR_TAX_TEMPLATE_ID',
+    'VVS_SI_TAX_TEMPLATE_ID',
+    'VVS_SR_TAX_TEMPLATE_ID',
+    'VVS_DI_NOTAX_TEMPLATE_ID',
+    'VVS_DR_NOTAX_TEMPLATE_ID',
+    'VVS_SI_NOTAX_TEMPLATE_ID',
+    'VVS_SR_NOTAX_TEMPLATE_ID',
+  ].forEach(function(key) {
+    ConfigRepo.set('payments', key, 'tpl_' + key.toLowerCase() + '_' + suffix);
+  });
 }

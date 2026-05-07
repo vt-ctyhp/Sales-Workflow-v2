@@ -441,6 +441,17 @@ function repoTestsExerciseTasks_(suite) {
     return result.ok && result.data.TaskState === TASK_STATE.OPEN;
   });
 
+  repoTestCall_(suite, 'Tasks.canActOn', 'allows assigned owner to act on open task', function() {
+    return {
+      ok: Tasks.canActOn(ctx.taskId, {
+        email: ctx.userEmail,
+        roles: [ROLE.CLIENT_ADVISOR],
+      }),
+    };
+  }, function(result) {
+    return result.ok === true;
+  });
+
   var updated = repoTestCall_(suite, 'Tasks.upsert', 'updates task with version check', function() {
     return Tasks.upsert(mergeObjects_(repoTestTask_(ctx), {
       Version: created.version,
@@ -641,7 +652,7 @@ function repoTestsExerciseIntakeQueue_(suite) {
   });
 
   repoTestCall_(suite, 'IntakeQueue.listPending', 'lists pending intake payloads', function() {
-    return IntakeQueue.listPending(10);
+    return IntakeQueue.listPending(1000);
   }, function(result) {
     return result.ok && repoTestHasRow_(result, 'IntakeID', queued.data.IntakeID);
   });
